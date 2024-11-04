@@ -1,0 +1,48 @@
+<!Doctype html>
+<html>
+
+<head>
+    <title>Journey to the East</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <link rel="icon" type="image/x-icon" href="src/image/player/player_face_right.png">
+    <link rel="stylesheet" href="./src/code/index.css">
+    <link rel='stylesheet' href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css'>
+    <script src="./src/code/pixi.js" type="text/javascript"></script>
+    <script src="./src/code/index.js" type="module"></script>
+</head>
+
+<body>
+    <h1>Journey to the East</h1>
+    <div id="gameDiv" class="game-div" oncontextmenu="return false"></div>
+    <div id="arcadeFont">a</div>
+    <br>
+    <div class="instruction-link">
+        <i class='bx bx-question-mark'></i>
+        <a href="#">Instructions</a>
+    </div>
+    <p>Made by <a href="mailto:xie805956@sas.edu.sg">Ian Xie</a>, <a href="mailto:hang800700@sas.edu.sg">Barry Hang</a>,
+        and <a href="mailto:yang798653@sas.edu.sg">Rick Yang</a></p>
+
+    <div class="instruction" id="instruction">
+        <i class='bx bx-x-circle'></i>
+        <div class="instruction-content">
+            <h2 class="instruction-title">Instructions</h2>
+            <p>Press <b>A & D</b> or <b>left arrow & right arrow</b> to move left and right</p>
+            <p>Press <b>W, space, or up arrow</b> to jump</p>
+            <p>Press <b>F</b> to use Chi attack</p>
+            <p><b>Left / right click</b> to attack</p>
+        </div>
+    </div>
+    <div class="instruction-background" id="instructionBackground"></div>
+
+    <div id="unlockAbility" class="unlock-ability">
+        <i class="bx bx-x-circle" id="hideUnlockAbility"></i>
+        <h2>Ability unlocked: </h2>
+        <b id="abilityName" style="color: red;"></b>
+        <img id="abilityImg">
+        <p id="abilityDescription"></p>
+    </div>
+</body>
+
+</html>

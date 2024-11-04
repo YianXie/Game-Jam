@@ -1,0 +1,187 @@
+@font-face {
+    font-family: 'Arcade';
+    src: url('../font/ARCADECLASSIC.TTF');
+}
+
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+}
+
+body {
+    text-align: center;
+    font-family: sans-serif;
+}
+
+a:visited {
+    color: blue;
+}
+
+a:active {
+    color: red;
+}
+
+h1 {
+    font-size: 3rem;
+    /* margin: 0; */
+    padding: 0;
+}
+
+p {
+    /* margin: 0; */
+    padding: 0;
+}
+
+canvas {
+    position: relative;
+    margin: 0;
+    padding: 0;
+}
+
+.instruction-link {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.instruction-link i {
+    background: lightgray;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.instruction {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    visibility: hidden;
+    width: 300px;
+    height: 500px;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition: all 0.3s;
+    border: 2px solid black;
+    border-radius: 20px;
+    padding: 10px;
+    background: lightgray;
+    z-index: 1000;
+}
+
+.instruction-show {
+    visibility: visible;
+    top: 50%;
+    opacity: 1;
+}
+
+.instruction .instruction-content p,
+.instruction .instruction-content h2 {
+    display: inline-block;
+}
+
+.instruction i {
+    position: relative;
+    transform: scale(1.5);
+    float: right;
+    color: white;
+    background: black;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.instruction i:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.instruction-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 999;
+    visibility: hidden;
+    background: rgba(211, 211, 211, 0.5);
+    opacity: 0;
+    transition: all 0.3s;
+    margin: 0;
+    padding: 0;
+}
+
+.instruction-background-show {
+    visibility: visible;
+    opacity: 1;
+}
+
+.unlock-ability {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 10px;
+    margin: 0;
+    width: fit-content;
+    height: fit-content;
+    background: lightgray;
+    border: 2px solid black;
+    border-radius: 10px;
+    visibility: hidden;
+    opacity: 0;
+    transition: all 0.5s;
+    z-index: 1000;
+}
+
+.unlock-ability-show {
+    visibility: visible;
+    opacity: 1;
+    top: 50%;
+}
+
+.unlock-ability h2, .unlock-ability p {
+    margin: 5px;
+    padding: 0;
+}
+
+.unlock-ability img {
+    display: block;
+    width: 50%;
+    height: 50%;
+    border-radius: 10%;
+    margin: 10px;
+}
+
+.unlock-ability i {
+    display: inline;
+    position: relative;
+    float: right;
+    font-size: 1.5rem;
+    color: white;
+    align-self: flex-end;
+    background: black;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.unlock-ability i:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+#arcadeFont {
+    font-family: 'Arcade';
+    font-size: 0px;
+    visibility: hidden;
+}
