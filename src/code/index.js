@@ -1,5 +1,4 @@
 // Canvas set ups
-// 
 let app;
 app = new PIXI.Application();
 globalThis.__PIXI_APP__ = app;
@@ -31,7 +30,7 @@ let playerInDamageCooldown = false;
 let playerIsSwordAttacking = false;
 let playerIsChiAttacking = false;
 let playerRollInfo = { isRolling: false, direction: "" };
-let playerRollCoolDown = 300; // 5 seconds, 60fps per second
+let playerRollCoolDown = 30; // 1 second, 60fps per second
 let cntAfterAttack = 0;
 let inCoolDown = 0;
 let playerHoldSword = 0;
@@ -215,7 +214,7 @@ const charactersInfo = {
             height: diagonalLength * 0.0625,
             average: (diagonalLength * 0.625 + diagonalLength * 0.625) / 2,
         },
-        speed: gameWidth * 0.01,
+        speed: gameWidth * 0.0075,
         speedY: 0,
         isJumping: false,
         floorY: gameHeight * 6 / 7,
@@ -1452,7 +1451,7 @@ function bugBossAttack(element = bugBoss) {
     if (!bugBoss.label.isSummoning) {
         console.log("Set create bug interval");
         bugBoss.label.isSummoning = true;
-        const createLittleBugInterval = setInterval(createLittleBug, 1500);
+        const createLittleBugInterval = setInterval(createLittleBug, 2500);
         intervalsAndTimeouts.push(createLittleBugInterval);
     }
 
@@ -1898,12 +1897,12 @@ function gameLoop(delta = 1) {
             if (playerRollInfo.direction === "right") {
                 player.rotation += 0.3;
                 if (!charactersInfo.player.isBlocked.right) {
-                    player.x += 5;
+                    player.x += gameWidth * 0.025;
                 }
             } else if (playerRollInfo.direction === "left") {
                 player.rotation -= 0.3;
                 if (!charactersInfo.player.isBlocked.left) {
-                    player.x -= 5;
+                    player.x -= gameWidth * 0.025;
                 }
             }
             playerRollSmoke.visible = true;
@@ -1915,7 +1914,7 @@ function gameLoop(delta = 1) {
             playerRollInfo.isRolling = false;
             player.rotation = 0;
             playerRollSmoke.visible = false;
-            playerRollCoolDown = 300; // Reset the cooldown
+            playerRollCoolDown = 30; // Reset the cooldown
         }
     } else {
         if (playerRollCoolDown > 0) {
