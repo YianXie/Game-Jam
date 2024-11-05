@@ -20,8 +20,10 @@ app.stage.interactive = true;
 // Game variables
 const gravity = 1.5;
 const chiAttackCoolDown = 2;
+let gamePaused = false;
 let playerDeathNum = 0;
-let playerRegenerationInterval;
+let playerRegenerationInterval = undefined;
+let playerIsRegenrating = false;
 let isStartingGame = false;
 let allowPlayerMoveOutOfScreen = false;
 let minFloorHeight = gameHeight * 6 / 7;
@@ -83,12 +85,14 @@ const bugBossDamagedFaceRight = await PIXI.Assets.load('./src/image/monsters/bug
 const bugBossDamagedFaceLeft = await PIXI.Assets.load('./src/image/monsters/bug_boss/bug_boss_damaged_face_left.png');
 const bugBossStrikeFaceRight = await PIXI.Assets.load('./src/image/monsters/bug_boss/bug_boss_strike_face_right.png');
 const bugBossStrikeFaceLeft = await PIXI.Assets.load('./src/image/monsters/bug_boss/bug_boss_strike_face_left.png');
+const bugBossDied = await PIXI.Assets.load('./src/image/monsters/bug_boss/bug_boss_die.png');
 const littleBugFaceRight = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_walk_right_1.png'); // since there is no face right image for the little bug, use the walk right image instead
 const littleBugFaceLeft = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_walk_left_1.png'); // since there is no face left image for the little bug, use the walk left image instead
 const littleBugWalkRight1 = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_walk_right_1.png');
 const littleBugWalkRight2 = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_walk_right_2.png');
 const littleBugWalkLeft1 = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_walk_left_1.png');
 const littleBugWalkLeft2 = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_walk_left_2.png');
+const littleBugDied = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_die.png');
 const littleBugStingTexture = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_sting.png'); // there is no left or right image for the little bug sting
 
 // Load the symbols image
@@ -380,7 +384,7 @@ const monstersInfo = {
         visibility: true,
         anchor: 0.5,
         attack: bugBossAttack,
-        range: 500,
+        range: gameWidth * 0.5,
         speed: 0,
         speedY: 0,
         floorY: gameHeight * 6 / 7,
@@ -677,7 +681,7 @@ const playerRollSound = new Audio('./src/audio/player/player_roll.mp3');
 const playerRollReadySound = new Audio('./src/audio/player/roll_ready.mp3');
 
 function askForInit() {
-    if (confirm("Do you want to view an instruction?")) {
+    if (confirm("Do you want to view an instruction first before you start?")) {
         isStartingGame = true;
         showInstructions();
     } else {
@@ -708,10 +712,11 @@ function init() {
     playerAttacks.length = 0;
     monstersAttack.length = 0;
     supportingObjects.length = 0;
+    playerIsRegenrating = false;
     for (let i = 0; i < intervalsAndTimeouts.length; i++) {
         clearInterval(intervalsAndTimeouts[i]);
+        intervalsAndTimeouts[i] = undefined;
     }
-    intervalsAndTimeouts.length = 0;
 
     // Add the event listeners and the game loop
     isStartingGame = false;
@@ -1031,11 +1036,11 @@ function createPlayerTexture() {
 
 function playerRegeneration() {
     // Regenerate the player's health and energy
-    if (!charactersInfo.player.alive) {
+    if (!charactersInfo.player.alive || gamePaused) {
         return;
     }
 
-    console.log("Regenerating player's health and energy");
+    console.log("%c Regenerating player's health and energy", "color: blue");
     if (charactersInfo.player.status.health < charactersInfo.player.status.maxHealth) {
         charactersInfo.player.status.health += 5;
         healthText.text = 'Health: ' + charactersInfo.player.status.health;
@@ -1107,6 +1112,27 @@ function playerRoll() {
     }
 }
 
+function dialogue(speaker, message) {
+    let dialogueBg = new PIXI.Graphics();
+    dialogueBg.anchor.set(0.5);
+
+    let msg = new PIXI.Text(
+        message.text,
+        {
+            fontFamily: "Arial",
+            fontSize: 24,
+            fill: "black",
+        }
+    )
+    msg.anchor.set(0.5);
+    msg.x = message.x;
+    msg.y = message.y;
+    msg.width = message.width;
+    msg.height = message.height;
+
+    dialogueBg.roundRect(msg.x, msg.y, msg.width, msg.height, 20);
+}
+
 // Create the textures for different actions of the strike pig
 function createStrikePigTexure() {
     console.log("Creating strike pig texture");
@@ -1146,8 +1172,7 @@ function createBugBossTexture() {
         new PIXI.Texture(bugBossDamagedFaceRight, new PIXI.Rectangle(0, 0, monstersInfo.bugBoss.size.width, monstersInfo.bugBoss.size.height)),
     ]
     monstersInfo.bugBoss.texture['died'] = [
-        // The bug boss died texture is not finished yet
-        new PIXI.Texture(bugBossDamagedFaceRight, new PIXI.Rectangle(0, 0, monstersInfo.bugBoss.size.width, monstersInfo.bugBoss.size.height)),
+        new PIXI.Texture(bugBossDied, new PIXI.Rectangle(0, 0, monstersInfo.bugBoss.size.width, monstersInfo.bugBoss.size.height)),
     ]
 }
 
@@ -1168,8 +1193,7 @@ function createLittleBugTexture() {
         new PIXI.Texture(littleBugWalkRight2, new PIXI.Rectangle(0, 0, monstersInfo.littleBug.size.width, monstersInfo.littleBug.size.height)),
     ]
     monstersInfo.littleBug.texture['died'] = [
-        // The little bug died texture is not finished yet
-        new PIXI.Texture(littleBugFaceRight, new PIXI.Rectangle(0, 0, monstersInfo.littleBug.size.width, monstersInfo.littleBug.size.height)),
+        new PIXI.Texture(littleBugDied, new PIXI.Rectangle(0, 0, monstersInfo.littleBug.size.width, monstersInfo.littleBug.size.height)),
     ]
 }
 
@@ -1400,11 +1424,10 @@ function strikePigAttack() {
 }
 
 function createLittleBug() {
-    if (!bugBoss.label.alive || !charactersInfo.player.alive) {
+    if (!bugBoss.label.alive || !charactersInfo.player.alive || gamePaused) {
         return;
     }
 
-    bugBoss.label.isSummoning = true;
     let littleBug = undefined;
     const littleBugCoor = generateRandomCoords({ x: 50, y: monstersInfo.littleBug.floorY }, { x: app.screen.width + 50, y: 50 });
     monstersInfo.littleBug.location.x = littleBugCoor.x;
@@ -1427,9 +1450,9 @@ function bugBossAttack(element = bugBoss) {
     // WIP
     bugBoss.label.isAttacking = true;
     if (!bugBoss.label.isSummoning) {
-        const createLittleBugInterval = setInterval(function () {
-            createLittleBug();
-        }, 2000);
+        console.log("Set create bug interval");
+        bugBoss.label.isSummoning = true;
+        const createLittleBugInterval = setInterval(createLittleBug, 1500);
         intervalsAndTimeouts.push(createLittleBugInterval);
     }
 
@@ -1614,7 +1637,6 @@ function elementDied(element) {
         player.visible = false;
         setTimeout(gameOver, 1500);
     } else {
-        // try {
         // Add the element to the stage so that it can be seen
         element.label.container.visible = false;
         app.stage.addChild(element);
@@ -1645,31 +1667,29 @@ function elementDied(element) {
     // Check if the player has killed special monsters that unlock abilities
     if (element.label.name === "bugBoss") {
         setTimeout(() => {
-            unlockAbilityShow("Roll", "Press 'q' to roll, does not consume energy", "./src/image/player/player_roll.png");
+            unlockAbilityShow("Roll", "Press 'q' to roll, has a 5 seconds cooldown <br> Provide a 75% damage reduction", "./src/image/player/player_roll.gif");
         }, 1500);
     }
 }
 
 function pauseGame() {
     app.ticker.stop();
+    gamePaused = true;
     document.removeEventListener('keydown', keysDown);
     document.removeEventListener('keyup', keysUp);
     document.querySelector("#gameDiv").removeEventListener('mousedown', mouseDown);
     document.querySelector("#gameDiv").removeEventListener('mouseup', mouseUp);
-    clearInterval(playerRegenerationInterval);
-    playerRegenerationInterval = undefined;
     ambientMusic.volume = 0.5;
     battleMusic.volume = 0.5;
 }
 
 function resumeGame() {
     app.ticker.start();
+    gamePaused = false;
     document.addEventListener('keydown', keysDown);
     document.addEventListener('keyup', keysUp);
     document.querySelector("#gameDiv").addEventListener('mousedown', mouseDown);
     document.querySelector("#gameDiv").addEventListener('mouseup', mouseUp);
-    // playerRegenerationInterval = setInterval(playerRegeneration, 1000);
-    // intervalsAndTimeouts.push(playerRegenerationInterval);
     ambientMusic.volume = 1;
     battleMusic.volume = 1;
 }
@@ -1707,6 +1727,7 @@ function gameOver() {
     respawnButton.on('click', () => {
         console.log("Respawn");
         playerDeathNum++;
+        player.label.alive = true;
         init();
     });
 
@@ -1768,13 +1789,14 @@ function gameLoop(delta = 1) {
     }
 
     try {
-        if (playerRegenerationInterval === undefined) {
+        if (!playerIsRegenrating) {
             playerRegenerationInterval = setInterval(playerRegeneration, 1000);
+            playerIsRegenrating = true;
             intervalsAndTimeouts.push(playerRegenerationInterval);
-        }
+        } 
     }
     catch (err) {
-        console.log("Player regeneration interval already exists");
+        console.log("Error:", err);
     }
     // Check if the player is attacking the monsters
     for (const attack of monstersAttack) {
@@ -1791,6 +1813,7 @@ function gameLoop(delta = 1) {
         for (const monster of monsters) {
             if ((checkCollision(playerAttack, monster) === 'left' || checkCollision(playerAttack, monster) === 'right') && monster.label.alive) {
                 damage(monster, playerAttack.label.damage);
+                // if (!monster.label.)
             }
         }
     }
@@ -1985,7 +2008,7 @@ function gameLoop(delta = 1) {
         // Just for testing, unlock all abilities
         // use gif to better show the abilities
         unlockAbilityShow("Chi attack", "Press f to use chi attack, each attack consumes 1 energy", "./src/image/player/player_chi_attack.gif");
-        unlockAbilityShow("Roll", "Press q to roll, does not consume energy", "./src/image/player/player_roll.gif");
+        unlockAbilityShow("Roll", "Press q to roll, has a 5 seconds cooldown <br> Provide a 75% damage reduction", "./src/image/player/player_roll.gif");
     }
     if (key['o']) {
         // Just for testing
