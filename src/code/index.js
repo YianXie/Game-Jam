@@ -19,6 +19,10 @@ app.stage.interactive = true;
 // Game variables
 const gravity = 1.5;
 const chiAttackCoolDown = 2;
+const currentBackgroundBorder = {
+    leftX: gameWidth,
+    rightX: gameWidth * 3,
+};
 let gamePaused = false;
 let playerDeathNum = 0;
 let playerRegenerationInterval = undefined;
@@ -41,9 +45,9 @@ let mouse = {};
 // Resize event listener
 window.addEventListener("resize", () => {
     console.log("resized");
-    if (confirm("Window resized detected. Do you want to refresh to resize the game window?")) {
-        location.reload();
-    }
+    // if (confirm("Window resized detected. Do you want to refresh to resize the game window?")) {
+    //     location.reload();
+    // }
 
     // Currently not working
     // app.height = window.innerHeight * 0.75;
@@ -52,8 +56,9 @@ window.addEventListener("resize", () => {
 
 // Load the textures
 // Load the background images
-const bugBossBackground = await PIXI.Assets.load('./src/image/background/bug_boss_background.png');
 const cg = await PIXI.Assets.load('./src/image/background/cg.png');
+const bugBossBackground = await PIXI.Assets.load('./src/image/background/bug_boss_background.png');
+const forestBackground = await PIXI.Assets.load('./src/image/background/forest.png');
 
 // Load the player image
 const playerFaceRight = await PIXI.Assets.load('./src/image/player/player_face_right.png');
@@ -305,7 +310,7 @@ const monstersInfo = {
         name: "strikePig",
         alive: true,
         location: {
-            x: app.screen.width / 2 - 1000,
+            x: app.screen.width * 1.5,
             y: app.screen.height / 2 - 25,
         },
         size: {
@@ -319,9 +324,14 @@ const monstersInfo = {
             shield: false,
         },
         exclamationMarkPosition: {
-            y: -50,
-            faceRightX: 24,
-            faceLeftX: -24,
+            y: -gameHeight * 0.1,
+            faceRightX: gameWidth * 0.025,
+            faceLeftX: -gameWidth * 0.025,
+        },
+        entityRemainHealthPosition: {
+            y: 0,
+            faceRightX: gameWidth * 0.025,
+            faceLeftX: -gameWidth * 0.025,
         },
         isBlocked: {
             left: false,
@@ -663,10 +673,10 @@ let intervalsAndTimeouts = [];
 
 // Define the entities
 let player, sword, chi, playerRollSmoke;
-let strikePig, strikePigStrike, smoke, strikePigExclamationMark;
-let bugBoss, bugBossExclamationMark, littleBug, littleBugExclamationMark, bugBossStrike;
+let strikePig, strikePigStrike, strikePigSmoke;
+let bugBoss, bugBossExclamationMark, littleBug, bugBossStrike;
 let house, bugBossSeat, buddaStatus, stone;
-let healthText, energyText, entityRemainHealth;
+let healthText, energyText;
 
 // Audio
 const ambientMusic = new Audio('./src/audio/BGM/ambient.mp3');
@@ -739,6 +749,16 @@ function init() {
     bugBossBackground.height = app.screen.height;
     app.stage.addChild(bugBossBackground);
 
+    for (let i = 1; i < 4; i++) {
+        let forestBackground = PIXI.Sprite.from('./src/image/background/forest.png');
+        forestBackground.anchor = 0.5;
+        forestBackground.x = gameWidth * (i + 0.5);
+        forestBackground.y = gameHeight / 2;
+        forestBackground.width = gameWidth;
+        forestBackground.height = gameHeight;
+        app.stage.addChild(forestBackground);
+    }
+
     // Set up the entities
     // The order matters, the last element will be on top of the previous elements (图层顺序)
     house = createElement(false, house, supportingObjectsInfo.house.size, { x: app.screen.width / 2, y: app.screen.height / 2 }, 0.5, false, "./src/image/others/house.png", "house");
@@ -756,21 +776,20 @@ function init() {
 
     playerRollSmoke = createElement(false, playerRollSmoke, symbolsInfo.smoke.size, { x: player.x, y: player.y + 35 }, 0.5, false, "./src/image/monsters/smoke_face_left.png");
 
-    // createStrikePigTexure();
-    // strikePig = createElement({ texture: monstersInfo.strikePig.texture.faceRight, loop: false, autoPlay: true, animationSpeed: monstersInfo.strikePig.animationSpeed }, strikePig, monstersInfo.strikePig.size, monstersInfo.strikePig.location, 0.5, true, './src/image/monsters/strike_pig/strike_pig_face_right.png', monstersInfo.strikePig);
-    // monsters.push(strikePig);
-    // monstersInfo.strikePig.container.addChild(strikePig);
-    // app.stage.addChild(monstersInfo.strikePig.container);
+    createStrikePigTexure();
+    strikePig = createMonster(monstersInfo.strikePig, './src/image/monsters/strike_pig/strike_pig_face_left.png', true, true, {
+        texture: monstersInfo.strikePig.texture.faceLeft,
+        animationSpeed: monstersInfo.strikePig.animationSpeed,
+        loop: false,
+        autoPlay: true,
+    }).monster;
+    monsters.push(strikePig);
+    console.log(strikePig);
 
-    // strike = createElement(false, strike, attacksInfo.strike.size, attacksInfo.strike.location, 0.5, false, './src/image/monsters/strike_pig/strike_face_right.png', attacksInfo.strike);
-    // monstersAttack.push(strike);
-    // monstersInfo.strikePig.container.addChild(strike);
+    strikePigStrike = createElement(false, strikePigStrike, attacksInfo.strike.size, attacksInfo.strike.location, 0.5, false, './src/image/monsters/strike_pig/strike_face_right.png', attacksInfo.strike);
+    monstersAttack.push(strikePigStrike);
 
-    // strikePigExclamationMark = createElement(false, strikePigExclamationMark, symbolsInfo.exclamationMark.size, symbolsInfo.exclamationMark.location, 0.5, false, './src/image/monsters/exclamation_mark_yellow.png', symbolsInfo.exclamationMark);
-    // monstersInfo.strikePig.container.addChild(strikePigExclamationMark);
-
-    // smoke = createElement(false, smoke, symbolsInfo.smoke.size, symbolsInfo.smoke.location, 0.5, false, './src/image/monsters/strike_pig/smoke_face_right.png', symbolsInfo.smoke);
-    // monstersInfo.strikePig.container.addChild(smoke);
+    strikePigSmoke = createElement(false, strikePigSmoke, symbolsInfo.smoke.size, symbolsInfo.smoke.location, 0.5, false, './src/image/monsters/smoke_face_right.png', symbolsInfo.smoke);
 
     createBugBossTexture();
     createLittleBugTexture();
@@ -781,9 +800,6 @@ function init() {
         autoPlay: true,
     }).monster;
     monsters.push(bugBoss);
-
-    // littleBugSting = createElement(false, littleBugSting, attacksInfo.littleBugSting.size, attacksInfo.littleBugSting.location, 0.5, false, './src/image/monsters/bug_boss/little_bug_sting.png', attacksInfo.littleBugSting);
-    // monstersAttack.push(littleBugSting);
 
     bugBossStrike = createElement(false, bugBossStrike, attacksInfo.bugBossStrike.size, attacksInfo.bugBossStrike.location, 0.5, false, './src/image/monsters/bug_boss/bug_boss_strike_face_left.png', attacksInfo.bugBossStrike);
     monstersAttack.push(bugBossStrike);
@@ -1039,7 +1055,6 @@ function playerRegeneration() {
         return;
     }
 
-    console.log("%c Regenerating player's health and energy", "color: blue");
     if (charactersInfo.player.status.health < charactersInfo.player.status.maxHealth) {
         charactersInfo.player.status.health += 5;
         healthText.text = 'Health: ' + charactersInfo.player.status.health;
@@ -1104,7 +1119,7 @@ function playerRoll() {
     playerRollInfo.isRolling = true;
     playerRollSound.currentTime = 0;
     playerRollSound.play();
-    if (player.textures === charactersInfo.player.texture.faceRight || player.textures === charactersInfo.player.texture.walkRight) {
+    if (player.textures === charactersInfo.player.texture.faceRight || player.textures === charactersInfo.player.texture.walkRight || player.textures === charactersInfo.player.texture.damagedFaceRight) {
         playerRollInfo.direction = "right";
     } else {
         playerRollInfo.direction = "left";
@@ -1201,17 +1216,24 @@ function playerJump() {
     charactersInfo.player.speedY = -20;
 }
 
-function updateCanvas(direction) {
-    // WIP
+function updateCanvas(direction, amount = charactersInfo.player.speed) {
+    // The direction here refers to the direction of the canvas' movement
     if (!allowPlayerMoveOutOfScreen) {
         return;
     }
 
+    const playerIsNearLeftBorder = (player.x + gameWidth / 2) < currentBackgroundBorder.leftX;
+    const playerIsNearRightBorder = (player.x - gameWidth / 2) > currentBackgroundBorder.rightX
+    console.log(player.x + gameWidth / 2, currentBackgroundBorder);
+    console.log(playerIsNearLeftBorder, playerIsNearRightBorder);
+
     app.stage.children.forEach((child) => {
-        if (direction === "left") {
-            child.x += 10;
-        } else if (direction === "right") {
-            child.x -= 10;
+        if (direction === "left" && !playerIsNearRightBorder && !playerIsNearLeftBorder) {
+            // Player is moving right
+            child.x -= amount;
+        } else if (direction === "right" && !playerIsNearLeftBorder && !playerIsNearRightBorder) {
+            // Player is moving left
+            child.x += amount;
         }
     });
 }
@@ -1383,22 +1405,22 @@ function strikePigAttack() {
 
     console.log("Strike pig is attacking");
     strikePig.label.isAttacking = true;
-    smoke.visible = true;
-    smoke.y = strikePig.y + 35;
+    strikePigSmoke.visible = true;
+    strikePigSmoke.y = strikePig.y + 35;
     strikePig.loop = true;
     strikePigStrike.y = strikePig.y;
     if (strikePig.textures === monstersInfo.strikePig.texture.walkRight) {
         strikePigStrike.texture = strikeWaveFaceRight;
-        smoke.texture = strikeSmokeFaceRight;
-        smoke.x = strikePig.x - 75;
+        strikePigSmoke.texture = strikeSmokeFaceRight;
+        strikePigSmoke.x = strikePig.x - 75;
         strikePigExclamationMark.x = strikePig.x + 50;
         strikePigStrike.x = strikePig.x + 75;
         strikeDirection = "right";
     }
     else if (strikePig.textures === monstersInfo.strikePig.texture.walkLeft) {
         strikePigStrike.texture = strikeWaveFaceLeft;
-        smoke.texture = strikeSmokeFaceLeft;
-        smoke.x = strikePig.x + 75;
+        strikePigSmoke.texture = strikeSmokeFaceLeft;
+        strikePigSmoke.x = strikePig.x + 75;
         strikePigExclamationMark.x = strikePig.x - 50;
         strikePigStrike.x = strikePig.x - 75;
         strikeDirection = "left";
@@ -1413,7 +1435,7 @@ function strikePigAttack() {
 
     const strikePigNotStrikeInterval = setTimeout(function () {
         strikePigStrike.visible = false;
-        smoke.visible = false;
+        strikePigSmoke.visible = false;
         strikePigStrikeInProgress = false;
         strikePig.label.isAttacking = false;
         strikePig.animationSpeed = monstersInfo.strikePig.animationSpeed;
@@ -1666,7 +1688,11 @@ function elementDied(element) {
     // Check if the player has killed special monsters that unlock abilities
     if (element.label.name === "bugBoss") {
         setTimeout(() => {
-            unlockAbilityShow("Roll", "Press 'q' to roll, has a 5 seconds cooldown <br> Provide a 75% damage reduction", "./src/image/player/player_roll.gif");
+            unlockAbilityShow("Roll", "Press 'q' to roll, has a 0.5 seconds cooldown <br> Provide a 75% damage reduction", "./src/image/player/player_roll.gif");
+            allowPlayerMoveOutOfScreen = true;
+            player.x = app.screen.width * 1.5;
+            updateCanvas("left", app.screen.width * 1);
+            console.log(currentBackgroundBorder, player.x - app.screen.width / 2);
         }, 1500);
     }
 }
@@ -1792,7 +1818,7 @@ function gameLoop(delta = 1) {
             playerRegenerationInterval = setInterval(playerRegeneration, 1000);
             playerIsRegenrating = true;
             intervalsAndTimeouts.push(playerRegenerationInterval);
-        } 
+        }
     }
     catch (err) {
         console.log("Error:", err);
@@ -1898,11 +1924,17 @@ function gameLoop(delta = 1) {
                 player.rotation += 0.3;
                 if (!charactersInfo.player.isBlocked.right) {
                     player.x += gameWidth * 0.025;
+                    if (allowPlayerMoveOutOfScreen) {
+                        updateCanvas("left", gameWidth * 0.025);
+                    }
                 }
             } else if (playerRollInfo.direction === "left") {
                 player.rotation -= 0.3;
                 if (!charactersInfo.player.isBlocked.left) {
                     player.x -= gameWidth * 0.025;
+                    if (allowPlayerMoveOutOfScreen) {
+                        updateCanvas("right", gameWidth * 0.025);
+                    }
                 }
             }
             playerRollSmoke.visible = true;
@@ -1978,7 +2010,7 @@ function gameLoop(delta = 1) {
         if (!charactersInfo.player.isBlocked.left) {
             player.x -= charactersInfo.player.speed;
             isMoving = true;
-            updateCanvas("left");
+            updateCanvas("right");
         }
     }
     if (key['d'] || key["ArrowRight"]) {
@@ -1994,7 +2026,7 @@ function gameLoop(delta = 1) {
         if (!charactersInfo.player.isBlocked.right) {
             player.x += charactersInfo.player.speed;
             isMoving = true;
-            updateCanvas("right");
+            updateCanvas("left");
         }
     }
     if ((key[' '] || key['w'] || key['ArrowUp']) && !charactersInfo.player.isJumping) {
@@ -2007,11 +2039,17 @@ function gameLoop(delta = 1) {
         // Just for testing, unlock all abilities
         // use gif to better show the abilities
         unlockAbilityShow("Chi attack", "Press f to use chi attack, each attack consumes 1 energy", "./src/image/player/player_chi_attack.gif");
-        unlockAbilityShow("Roll", "Press q to roll, has a 5 seconds cooldown <br> Provide a 75% damage reduction", "./src/image/player/player_roll.gif");
+        unlockAbilityShow("Roll", "Press q to roll, has a 0.5 seconds cooldown <br> Provide a 75% damage reduction", "./src/image/player/player_roll.gif");
     }
     if (key['o']) {
         // Just for testing
         damage(player, charactersInfo.player.status.maxHealth);
+    }
+    if (key['i']) {
+        // Just for testing
+        allowPlayerMoveOutOfScreen = true;
+        player.x = app.screen.width * 1.5;
+        updateCanvas("left", app.screen.width * 1.5);
     }
 
     // Abilities key press
