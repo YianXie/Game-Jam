@@ -15,6 +15,7 @@ body {
     margin: 0;
     padding: 0;
     overflow: auto;
+    scroll-behavior: smooth;
 }
 
 body {
@@ -32,12 +33,10 @@ a:active {
 
 h1 {
     font-size: 3rem;
-    /* margin: 0; */
     padding: 0;
 }
 
 p {
-    /* margin: 0; */
     padding: 0;
 }
 
@@ -52,12 +51,22 @@ canvas {
     flex-direction: row;
     justify-content: center;
     align-items: center;
+    position: relative;
+    /* Set relative positioning */
 }
 
 .instruction-link i {
     background: lightgray;
     border-radius: 50%;
     margin-right: 5px;
+}
+
+.instruction-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: fit-content;
 }
 
 .instruction {
@@ -81,6 +90,55 @@ canvas {
     visibility: visible;
     top: 50%;
     opacity: 1;
+}
+
+.check-instruction-alert {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: lightblue;
+    border: 2px solid black;
+    border-radius: 10px;
+    padding: 5px;
+    position: absolute;
+    width: 400px;
+    margin-top: 170px;
+    visibility: hidden;
+    opacity: 0;
+    transition: all 1s;
+}
+
+.check-instruction-alert-show {
+    visibility: visible;
+    opacity: 1;
+}
+
+.instruction-icons {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.check-instruction-alert i {
+    background: transparent;
+}
+
+#closeAlertInstructionArrow {
+    font-size: 50px;
+    font-weight: bold;
+    align-self: center;
+    justify-self: center;
+}
+
+#closeAlertInstruction {
+    font-size: 20px;
+    position: absolute;
+    align-self: flex-start;
+    margin-left: 95%;
+    cursor: pointer;
 }
 
 .instruction .instruction-content p,
@@ -151,7 +209,8 @@ canvas {
     top: 50%;
 }
 
-.unlock-ability h2, .unlock-ability p {
+.unlock-ability h2,
+.unlock-ability p {
     margin: 5px;
     padding: 0;
 }
