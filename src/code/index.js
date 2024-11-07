@@ -29,6 +29,7 @@ let playerRegenerationInterval = undefined;
 let playerIsRegenrating = false;
 let isStartingGame = false;
 let allowPlayerMoveOutOfScreen = false;
+let currentDialogue = undefined;
 let minFloorHeight = gameHeight * 6 / 7;
 let playerIsSwordAttacking = false;
 let playerIsChiAttacking = false;
@@ -688,6 +689,8 @@ const unlockAbilitySound = new Audio('./src/audio/player/unlock_ability.mp3');
 const playerChiAttackSound = new Audio('./src/audio/player/player_chi_attack.mp3');
 const playerRollSound = new Audio('./src/audio/player/player_roll.mp3');
 const playerRollReadySound = new Audio('./src/audio/player/roll_ready.mp3');
+const playerStartSpeaking = new Audio('./src/audio/player/player_speak_start.mp3');
+const playerStopSpeaking = new Audio('./src/audio/player/player_speak_end.mp3');
 
 function askForInit() {
     if (confirm("Do you want to view an instruction first before you start?")) {
@@ -1165,24 +1168,69 @@ function playerRoll() {
 }
 
 function dialogue(speaker, message) {
+    if (currentDialogue) {
+        // Only one dialogue can be shown at a time
+        return;
+    }
+
+    playerStartSpeaking.currentTime = 0;
+    playerStartSpeaking.play();
+
     let dialogueBg = new PIXI.Graphics();
-    dialogueBg.anchor.set(0.5);
+    dialogueBg.anchor = 0.5;
+    dialogueBg.beginFill('#d69e04');
 
     let msg = new PIXI.Text(
         message.text,
         {
             fontFamily: "Arial",
-            fontSize: 24,
+            fontSize: 12,
             fill: "black",
         }
     )
-    msg.anchor.set(0.5);
+    msg.anchor = 0.5;
     msg.x = message.x;
     msg.y = message.y;
-    msg.width = message.width;
-    msg.height = message.height;
 
-    dialogueBg.roundRect(msg.x, msg.y, msg.width, msg.height, 20);
+    let speakerName = new PIXI.Text(
+        speaker,
+        {
+            fontFamily: "Arial",
+            fontSize: 15,
+            fill: "black",
+            fontWeight: "bold",
+        }
+    )
+    speakerName.anchor = 0.5;
+    speakerName.x = message.x - msg.width / 2 + speakerName.width / 2;
+    speakerName.y = message.y - speakerName.height - message.padding ;
+
+    dialogueBg.roundRect(msg.x - msg.width / 2 - message.padding, msg.y - msg.height - speakerName.height - message.padding, msg.width + message.padding * 2, msg.height + speakerName.height * 2 + message.padding * 2, 10);
+    dialogueBg.endFill();
+
+    currentDialogue = {
+        dialogueBg: dialogueBg,
+        msg: msg,
+        speakerName: speakerName,
+    }
+
+    app.stage.addChild(dialogueBg);
+    app.stage.addChild(msg);
+    app.stage.addChild(speakerName);
+
+    setTimeout(hideDialogue, 1000);
+}
+
+function hideDialogue() {
+    if (!currentDialogue) {
+        return;
+    }
+
+    console.log("Hiding dialogue");
+    currentDialogue.dialogueBg.destroy();
+    currentDialogue.msg.destroy();
+    currentDialogue.speakerName.destroy();
+    currentDialogue = undefined;
 }
 
 // Create the textures for different actions of the strike pig
@@ -1460,7 +1508,6 @@ function strikePigAttack() {
         strikePigStrike.texture = strikeWaveFaceRight;
         strikePigSmoke.texture = smokeFaceRight;
         strikePigSmoke.x = strikePig.x - 75;
-        strikePigExclamationMark.x = strikePig.x + 50;
         strikePigStrike.x = strikePig.x + 75;
         strikeDirection = "right";
     }
@@ -1468,7 +1515,6 @@ function strikePigAttack() {
         strikePigStrike.texture = strikeWaveFaceLeft;
         strikePigSmoke.texture = smokeFaceLeft;
         strikePigSmoke.x = strikePig.x + 75;
-        strikePigExclamationMark.x = strikePig.x - 50;
         strikePigStrike.x = strikePig.x - 75;
         strikeDirection = "left";
     }
@@ -1621,7 +1667,7 @@ function checkEntitiesFalling() {
 }
 
 
-function damage(element, dmg) {
+function elementDamaged(element, dmg) {
     if (element.label.inDamageCooldown) {
         return;
     }
@@ -1877,7 +1923,7 @@ function gameLoop(delta = 1) {
         if (checkCollision(player, attack) === "right" || checkCollision(player, attack) === "left") {
             const attacker = monsters.find(monster => monster.label.name === attack.label.from);
             if (attacker.label.alive) {
-                damage(player, attack.label.damage);
+                elementDamaged(player, attack.label.damage);
             }
         }
     }
@@ -1886,7 +1932,7 @@ function gameLoop(delta = 1) {
     for (const playerAttack of playerAttacks) {
         for (const monster of monsters) {
             if ((checkCollision(playerAttack, monster) === 'left' || checkCollision(playerAttack, monster) === 'right') && monster.label.alive) {
-                damage(monster, playerAttack.label.damage);
+                elementDamaged(monster, playerAttack.label.damage);
                 // if (!monster.label.)
             }
         }
@@ -2128,7 +2174,15 @@ function gameLoop(delta = 1) {
     }
     if (key['o']) {
         // Just for testing
-        damage(player, charactersInfo.player.status.maxHealth);
+        elementDamaged(player, charactersInfo.player.status.maxHealth);
+    }
+    if (key['i']) {
+            dialogue("Player", {
+            text: "Hello, I am the player.",
+            x: player.x,
+            y: player.y - 75,
+            padding: 5,
+        });
     }
 
     // Abilities key press
