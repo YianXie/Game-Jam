@@ -26,8 +26,10 @@ let currentBackgroundPosition = {
 let gamePaused = false;
 let playerDeathNum = 0;
 let playerRegenerationInterval = undefined;
+let playerIsClickingButton = false;
 let playerIsRegenrating = false;
 let isStartingGame = false;
+let gameIsRunning = false;
 let allowPlayerMoveOutOfScreen = false;
 let currentDialogue = undefined;
 let minFloorHeight = gameHeight * 6 / 7;
@@ -44,14 +46,10 @@ let mouse = {};
 
 // Resize event listener
 window.addEventListener("resize", () => {
-    console.log("resized");
-    // if (confirm("Window resized detected. Do you want to refresh to resize the game window?")) {
-    //     location.reload();
-    // }
-
-    // Currently not working
-    // app.height = window.innerHeight * 0.75;
-    // app.width = window.innerWidth * 0.8;
+    // Alert the user that the window has been resized
+    if (confirm("Window resized detected. Do you want to refresh to resize the game window?")) {
+        location.reload();
+    }
 })
 
 // Load the textures
@@ -680,17 +678,21 @@ let house, bugBossSeat, buddaStatus, stone;
 let healthText, energyText;
 
 // Audio
-const ambientMusic = new Audio('./src/audio/BGM/ambient.mp3');
+const ambientMusic = new Audio('./src/audio/BGM/ambient.mp3'); // BGM by Rick
 ambientMusic.loop = true;
-const battleMusic = new Audio('./src/audio/BGM/battle.mp3');
+const battleMusic = new Audio('./src/audio/BGM/battle.mp3'); // BGM by Rick
 battleMusic.loop = true;
 const freeSwordSound = new Audio('./src/audio/player/free_sword.mp3');
 const unlockAbilitySound = new Audio('./src/audio/player/unlock_ability.mp3');
 const playerChiAttackSound = new Audio('./src/audio/player/player_chi_attack.mp3');
 const playerRollSound = new Audio('./src/audio/player/player_roll.mp3');
 const playerRollReadySound = new Audio('./src/audio/player/roll_ready.mp3');
-const playerStartSpeaking = new Audio('./src/audio/player/player_speak_start.mp3');
-const playerStopSpeaking = new Audio('./src/audio/player/player_speak_end.mp3');
+const characterStartSpeaking = [ 
+    // This not only includes the player, but also other characters
+    new Audio('./src/audio/player/character_start_speaking_1.mp3'),
+    new Audio('./src/audio/player/character_start_speaking_2.mp3'),
+    new Audio('./src/audio/player/character_start_speaking_3.mp3'),
+];
 
 function askForInit() {
     if (confirm("Do you want to view an instruction first before you start?")) {
@@ -717,6 +719,7 @@ function init() {
     app.renderer.background.color = 'black'; // change the background color to black
 
     // Reset the entities and arrays
+    gameIsRunning = true;
     charactersInfo.reset();
     monstersInfo.reset();
     characters.length = 0;
@@ -731,6 +734,7 @@ function init() {
     }
 
     // Add the event listeners and the game loop
+    playerIsClickingButton = false;
     isStartingGame = false;
     document.addEventListener('keydown', keysDown);
     document.addEventListener('keyup', keysUp);
@@ -766,7 +770,6 @@ function init() {
         app.stage.addChild(forestBackground);
         backgrounds.push(forestBackground);
     }
-    console.log(backgrounds);
 
     // Set up the entities
     // The order matters, the last element will be on top of the previous elements (图层顺序)
@@ -793,7 +796,6 @@ function init() {
         autoPlay: true,
     }).monster;
     monsters.push(strikePig);
-    console.log(strikePig);
 
     strikePigStrike = createElement(false, strikePigStrike, attacksInfo.strike.size, attacksInfo.strike.location, 0.5, false, './src/image/monsters/strike_pig/strike_face_right.png', attacksInfo.strike);
     monstersAttack.push(strikePigStrike);
@@ -875,6 +877,7 @@ function hideBackground() {
 function showInstructions() {
     console.log("showing instructions");
     document.getElementById("instruction").classList.add("instruction-show")
+    playerIsClickingButton = true;
     showBackground(5);
     pauseGame();
     document.addEventListener("keydown", function hideInstructionKeydown(e) {
@@ -886,6 +889,7 @@ function showInstructions() {
 
     try {
         document.getElementById("checkInstructionAlert").classList.remove("check-instruction-alert-show");
+        document.getElementById("openInstruction").style.animation = "";
     }
     catch (err) {
         console.log(err);
@@ -894,6 +898,7 @@ function showInstructions() {
 
 function hideInstructions() {
     document.getElementById("instruction").classList.remove("instruction-show");
+    playerIsClickingButton = false;
     window.location.href = "#title";
     hideBackground();
     resumeGame();
@@ -942,11 +947,12 @@ function unlockAbilityHide() {
     resumeGame();
     hideBackground();
     document.getElementById("unlockAbility").classList.remove('unlock-ability-show');
-    window.location.href = "#checkInstructionAlert";
+    document.getElementById("openInstruction").style.animation = "instruction-highlight-aniamtion 2s";
     const alertInstruction = document.getElementById("checkInstructionAlert");
     alertInstruction.classList.add("check-instruction-alert-show")
     ambientMusic.volume = 1;
     battleMusic.volume = 1;
+    window.location.href = "#checkInstructionAlert";
 }
 
 function keysDown(e) {
@@ -1170,67 +1176,173 @@ function playerRoll() {
 function dialogue(speaker, message) {
     if (currentDialogue) {
         // Only one dialogue can be shown at a time
+        console.log("Dialogue is already shown");
         return;
     }
-
-    playerStartSpeaking.currentTime = 0;
-    playerStartSpeaking.play();
 
     let dialogueBg = new PIXI.Graphics();
     dialogueBg.anchor = 0.5;
     dialogueBg.beginFill('#d69e04');
 
-    let msg = new PIXI.Text(
-        message.text,
-        {
-            fontFamily: "Arial",
-            fontSize: 12,
-            fill: "black",
+    const messageArray = message.text.split("\r\n"); // split the message by the new line
+    function showMessage() {
+        const currentMsg = messageArray[0];
+        if (!currentMsg) {
+            hideDialogue();
+            return;
         }
-    )
-    msg.anchor = 0.5;
-    msg.x = message.x;
-    msg.y = message.y;
 
-    let speakerName = new PIXI.Text(
-        speaker,
-        {
-            fontFamily: "Arial",
-            fontSize: 15,
-            fill: "black",
-            fontWeight: "bold",
+        const randomIndex = Math.floor(Math.random() * characterStartSpeaking.length);
+        characterStartSpeaking[randomIndex].currentTime = 0;
+        characterStartSpeaking[randomIndex].play();
+
+        playerIsClickingButton = true;
+        let msg = new PIXI.Text(
+            currentMsg,
+            {
+                fontFamily: "Arial",
+                fontSize: 12,
+                fill: "black",
+            }
+        )
+        msg.anchor = 0.5;
+        msg.x = message.x;
+        msg.y = message.y;
+    
+        let speakerName = new PIXI.Text(
+            speaker,
+            {
+                fontFamily: "Arial",
+                fontSize: 15,
+                fill: "black",
+                fontWeight: "bold",
+            }
+        )
+        speakerName.anchor = 0.5;
+        speakerName.x = message.x - msg.width / 2 + speakerName.width / 2;
+        speakerName.y = message.y - speakerName.height - message.padding ;
+        
+        dialogueBg.clear();
+        dialogueBg.beginFill('#d69e04');
+        dialogueBg.roundRect(msg.x - msg.width / 2 - message.padding, msg.y - msg.height - speakerName.height - message.padding, msg.width + message.padding * 2, msg.height + speakerName.height * 2 + message.padding * 2, 10);
+        dialogueBg.endFill();
+
+        app.stage.addChild(dialogueBg);
+        app.stage.addChild(msg);
+        app.stage.addChild(speakerName);
+
+        currentDialogue = {
+            dialogueBg: dialogueBg,
+            msg: msg,
+            speakerName: speakerName,
         }
-    )
-    speakerName.anchor = 0.5;
-    speakerName.x = message.x - msg.width / 2 + speakerName.width / 2;
-    speakerName.y = message.y - speakerName.height - message.padding ;
 
-    dialogueBg.roundRect(msg.x - msg.width / 2 - message.padding, msg.y - msg.height - speakerName.height - message.padding, msg.width + message.padding * 2, msg.height + speakerName.height * 2 + message.padding * 2, 10);
-    dialogueBg.endFill();
-
-    currentDialogue = {
-        dialogueBg: dialogueBg,
-        msg: msg,
-        speakerName: speakerName,
+        if (messageArray.length > 1) {   
+            addDialogueArrow(msg);
+        } else {
+            addCloseButton(msg);
+        }
     }
 
-    app.stage.addChild(dialogueBg);
-    app.stage.addChild(msg);
-    app.stage.addChild(speakerName);
+    // Nested functions
+    function addDialogueArrow(msg) {
+        let nextDialogueArrow;
+        nextDialogueArrow = new PIXI.Text(
+            "->",
+            {
+                fontSize: 18,
+                fontFamily: "Arcade",
+                fill: "black",
+            }
+        );
+        nextDialogueArrow.anchor = 0.5;
+        nextDialogueArrow.x = msg.x + msg.width / 2 - message.padding * 2;
+        nextDialogueArrow.y = msg.y - msg.height - message.padding * 2;
+    
+        nextDialogueArrow.interactive = true;
+        nextDialogueArrow.buttonMode = true;
+        nextDialogueArrow.on("mouseover", () => {
+            nextDialogueArrow.style.fill = "gray";
+        })
+        nextDialogueArrow.on("mouseout", () => {
+            nextDialogueArrow.style.fill = "black";
+        })
+        nextDialogueArrow.on("click", () => {
+            hideCurrentMessage();
+            messageArray.shift();
+            showMessage();
+        })
+        
+        app.stage.addChild(nextDialogueArrow);
+        currentDialogue["arrow"] = nextDialogueArrow;
+    }
 
-    setTimeout(hideDialogue, 1000);
+    function addCloseButton(msg = currentDialogue.msg) {
+        let closeDialogueX;
+        closeDialogueX = new PIXI.Text(
+            "X",
+            {
+                fontSize: 18,
+                fontFamily: "Arcade",
+                fill: "black",
+            }
+        )
+        closeDialogueX.anchor = 0.5;
+        closeDialogueX.x = msg.x + msg.width / 2 - message.padding * 2;
+        closeDialogueX.y = msg.y - msg.height - message.padding * 2;
+        currentDialogue["closeDialogueX"] = closeDialogueX;
+    
+        closeDialogueX.interactive = true;
+        closeDialogueX.buttonMode = true;
+        closeDialogueX.on("mouseover", () => {
+            closeDialogueX.style.fill = "gray";
+        })
+        closeDialogueX.on("mouseout", () => {
+            closeDialogueX.style.fill = "black";
+        })
+        closeDialogueX.on("click", () => {
+            playerIsClickingButton = false;
+            hideDialogue();
+        })
+    
+        app.stage.addChild(closeDialogueX);
+    }
+
+    function hideCurrentMessage() {
+        app.stage.removeChild(currentDialogue.speakerName);
+        app.stage.removeChild(currentDialogue.msg);
+        if (currentDialogue.arrow) {
+            app.stage.removeChild(currentDialogue.arrow);
+        }
+    }
+
+    showMessage();
 }
 
 function hideDialogue() {
     if (!currentDialogue) {
+        console.log("No dialogue to hide");
         return;
     }
 
-    console.log("Hiding dialogue");
+    app.stage.removeChild(currentDialogue.dialogueBg);
+    app.stage.removeChild(currentDialogue.msg);
+    app.stage.removeChild(currentDialogue.speakerName);
+
+    if (currentDialogue.nextDialogueArrow) {
+        app.stage.removeChild(currentDialogue.arrow);
+    }
+    
+    if (currentDialogue.closeDialogueX) {
+        app.stage.removeChild(currentDialogue.closeDialogueX);
+    }
+
     currentDialogue.dialogueBg.destroy();
     currentDialogue.msg.destroy();
     currentDialogue.speakerName.destroy();
+
     currentDialogue = undefined;
+    console.log("Dialogue hidden");
 }
 
 // Create the textures for different actions of the strike pig
@@ -1642,7 +1754,7 @@ function checkEntitiesFalling() {
                 });
             }
             catch (err) {
-                console.log(entity.label.name + " does not have a container");
+                // console.log(entity.label.name + " does not have a container");
                 entity.y += entity.label.speedY;
             }
         } else {
@@ -1804,14 +1916,17 @@ function pauseGame() {
 }
 
 function resumeGame() {
-    app.ticker.start();
+    if (gameIsRunning) {
+        document.addEventListener('keydown', keysDown);
+        document.addEventListener('keyup', keysUp);
+        document.querySelector("#gameDiv").addEventListener('mousedown', mouseDown);
+        document.querySelector("#gameDiv").addEventListener('mouseup', mouseUp);
+        ambientMusic.volume = 1;
+        battleMusic.volume = 1;
+    }
+
     gamePaused = false;
-    document.addEventListener('keydown', keysDown);
-    document.addEventListener('keyup', keysUp);
-    document.querySelector("#gameDiv").addEventListener('mousedown', mouseDown);
-    document.querySelector("#gameDiv").addEventListener('mouseup', mouseUp);
-    ambientMusic.volume = 1;
-    battleMusic.volume = 1;
+    app.ticker.start();
 }
 
 function gameOver() {
@@ -1966,7 +2081,7 @@ function gameLoop(delta = 1) {
         }
     }
 
-    if (playerIsSwordAttacking) {
+    if (playerIsSwordAttacking && !playerIsClickingButton) {
         sword.visible = true;
         sword.y = player.y + 8;
         if (charactersInfo.player.attack.sword.direction === "right") {
@@ -1999,7 +2114,6 @@ function gameLoop(delta = 1) {
     if (playerIsChiAttacking) {
         chi.visible = true;
         if (Math.abs(chi.x - charactersInfo.player.attack.chi.originalLocation.x) < charactersInfo.player.attack.chi.range) {
-            // console.log(charactersInfo.player.attack.chi.originalLocation.x, chi.x);
             if (charactersInfo.player.attack.chi.direction === "right") {
                 console.log("Chi is moving right");
                 chi.x += charactersInfo.player.attack.chi.speed;
@@ -2171,14 +2285,19 @@ function gameLoop(delta = 1) {
             description: "Press <b>q</b> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
             instruction: "Press <b>q</b> to roll",
         }, "./src/image/player/player_roll.gif");
+        unlockAbilityShow("Sprint", {
+            description: "Press <b>c</b> to sprint, doubles the player's speed for 3 seconds. <br>When sprinting, the player can hold the sword and attack while walking<br>Has a 5 seconds cooldown.",
+            instruction: "Press <b>c</b> to sprint",
+        }, "./src/image/player/player_sprint.gif");
     }
     if (key['o']) {
         // Just for testing
         elementDamaged(player, charactersInfo.player.status.maxHealth);
     }
     if (key['i']) {
-            dialogue("Player", {
-            text: "Hello, I am the player.",
+        // Just for testing
+        dialogue("Player", {
+            text: "Hello, I am the player.\r\nI love playing this game!",
             x: player.x,
             y: player.y - 75,
             padding: 5,
@@ -2186,18 +2305,16 @@ function gameLoop(delta = 1) {
     }
 
     // Abilities key press
-    if (key['c']) {
-        if (inCoolDown === 0) {
+    if (key['c'] && unlockedAbilities.includes("Sprint")) {
+        if (inCoolDown <= 0) {
             charactersInfo.player.speed *= 2;
             playerHoldSword = 600;
             inCoolDown = 600;
         }
     }
     if (inCoolDown <= 300 && inCoolDown > 0) {
-        charactersInfo.player.speed = 8;
+        charactersInfo.player.speed = gameWidth * 0.0075;
         playerHoldSword = 0;
-    }
-    if (inCoolDown) {
         inCoolDown--;
     }
 

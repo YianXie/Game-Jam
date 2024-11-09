@@ -52,7 +52,19 @@ canvas {
     justify-content: center;
     align-items: center;
     position: relative;
-    /* Set relative positioning */
+    animation-duration: 3s;
+}
+
+@keyframes instruction-highlight-aniamtion {
+    0% {
+        color: blue;
+    }
+    50% {
+        color: gold;
+    }
+    100% {
+        color: blue;
+    }
 }
 
 .instruction-link i {
@@ -97,8 +109,9 @@ canvas {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    background: lightblue;
-    border: 2px solid black;
+    background: rgba(42, 51, 45, 0.8);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.5);
     border-radius: 10px;
     padding: 5px;
     position: absolute;
