@@ -25,6 +25,7 @@ let currentBackgroundPosition = {
 };
 let gamePaused = false;
 let playerDeathNum = 0;
+let playerBiome = "bugBoss"; // The default biome is bug boss (which is not typically a biome)
 let playerRegenerationInterval = undefined;
 let playerIsClickingButton = false;
 let playerIsRegenrating = false;
@@ -40,6 +41,7 @@ let playerRollCoolDown = 30; // 1 second, 60fps per second
 let cntAfterAttack = 0;
 let inCoolDown = 0;
 let playerHoldSword = 0;
+let checkInstructionAlertAlready = false;
 let unlockedAbilities = [];
 let key = {};
 let mouse = {};
@@ -67,6 +69,9 @@ const playerWalkRight1 = await PIXI.Assets.load('./src/image/player/player_move_
 const playerWalkRight2 = await PIXI.Assets.load('./src/image/player/player_move_right_2.png');
 const playerDamagedFaceRight = await PIXI.Assets.load('./src/image/player/player_damaged_face_right.png');
 const playerDamagedFaceLeft = await PIXI.Assets.load('./src/image/player/player_damaged_face_left.png');
+
+const oldManFaceRight = await PIXI.Assets.load('./src/image/characters/old_man_face_right.png');
+const oldManFaceLeft = await PIXI.Assets.load('./src/image/characters/old_man_face_left.png');
 
 // Load the monster image
 const strikeWaveFaceRight = await PIXI.Assets.load('./src/image/monsters/strike_pig/strike_face_right.png');
@@ -228,8 +233,8 @@ const charactersInfo = {
             y: app.screen.height / 2,
         },
         status: {
-            health: 1000,
-            maxHealth: 1000,
+            health: 250,
+            maxHealth: 250,
             energy: 3,
             maxEnergy: 3,
             shield: false,
@@ -237,7 +242,7 @@ const charactersInfo = {
         attack: {
             sword: {
                 name: "sword",
-                damage: 25,
+                damage: 20,
                 rotation: 0,
                 direction: "right",
                 size: {
@@ -284,6 +289,25 @@ const charactersInfo = {
         damagedSound: [new Audio('./src/audio/player/player_damaged.mp3')],
         dieSound: new Audio('./src/audio/player/player_die.mp3'),
     },
+    oldMan: { 
+        // the old man is special, it is more like a ghost that cannot be attacked and affected by the gravity
+        name: "Old man",
+        alive: true,
+        size: {
+            width: diagonalLength * 0.15,
+            height: diagonalLength * 0.15,
+            average: (diagonalLength * 0.15 + diagonalLength * 0.15) / 2,
+        },
+        location: {
+            x: app.screen.width * 1.5 + gameWidth * 0.2,
+            y: app.screen.height / 2 + gameHeight * 0.1,
+        },
+        speed: 0,
+        speedY: 0,
+        isJumping: false,
+        movingDirection: "down",
+        texture: {},
+    },
     reset: function () {
         const player = this.player;
         player.status.health = player.status.maxHealth;
@@ -301,6 +325,15 @@ const charactersInfo = {
             // The player has a 1.5 seconds of invincibility after dying
             player.inDamageCooldown = false;
         }, 1500);
+
+        this.oldMan.alive = true;
+        this.oldMan.location.x = app.screen.width * 1.5 + gameWidth * 0.2;
+        this.oldMan.location.y = app.screen.height / 2 + gameHeight * 0.1;
+        this.oldMan.speed = 0;
+        this.oldMan.speedY = 0;
+        this.oldMan.isJumping = false;
+        this.oldMan.movingDirection = "down";
+        this.oldMan.texture = {};
     },
 }
 const monstersInfo = {
@@ -370,8 +403,8 @@ const monstersInfo = {
             average: (diagonalLength * 0.15 + diagonalLength * 0.15) / 2,
         },
         status: {
-            maxHealth: 50,
-            health: 50,
+            maxHealth: 300,
+            health: 300,
             shield: false,
         },
         exclamationMarkPosition: {
@@ -672,6 +705,7 @@ let intervalsAndTimeouts = [];
 
 // Define the entities
 let player, sword, chi, playerRollSmoke;
+let oldMan, oldManContainer;
 let strikePig, strikePigStrike, strikePigSmoke;
 let bugBoss, bugBossExclamationMark, littleBug, bugBossStrike;
 let house, bugBossSeat, buddaStatus, stone;
@@ -758,7 +792,7 @@ function init() {
     app.stage.addChild(bugBossBackground);
     backgrounds.push(bugBossBackground);
 
-    // Generate the forest backgrounds with lops
+    // Generate the forest backgrounds with loops
     for (let i = 1; i < 4; i++) {
         let forestBackground = PIXI.Sprite.from('./src/image/background/forest.png');
         forestBackground.anchor = 0.5;
@@ -787,6 +821,11 @@ function init() {
     playerAttacks.push(chi);
 
     playerRollSmoke = createElement(false, playerRollSmoke, symbolsInfo.smoke.size, { x: player.x, y: player.y + 35 }, 0.5, false, "./src/image/monsters/smoke_face_left.png");
+
+    oldManContainer = new PIXI.Container();
+    oldMan = createElement(false, oldMan, charactersInfo.oldMan.size, charactersInfo.oldMan.location, 0.5, true, './src/image/characters/old_man_face_left.png', charactersInfo.oldMan);
+    oldManContainer.addChild(oldMan);
+    app.stage.addChild(oldManContainer);
 
     createStrikePigTexure();
     strikePig = createMonster(monstersInfo.strikePig, './src/image/monsters/strike_pig/strike_pig_face_left.png', true, true, {
@@ -853,6 +892,12 @@ function init() {
     energyText.y = 40;
     energyText.label = "energyBar";
     app.stage.addChild(energyText);
+
+    // Teleport the player to the forest when the player dies
+    if (playerDeathNum == 1) {
+        playerBiome = "forest";
+        setTimeout(transitionToForest, 100);
+    }
 }
 
 document.getElementById("openInstruction").addEventListener('click', (event) => {
@@ -861,8 +906,27 @@ document.getElementById("openInstruction").addEventListener('click', (event) => 
 });
 
 document.getElementById("closeInstruction").addEventListener('click', hideInstructions);
-document.getElementById("hideUnlockAbility").addEventListener('click', unlockAbilityHide);
 document.getElementById("closeAlertInstruction").addEventListener('click', closeInstructionAlert);
+
+function transitionToForest() {
+    allowPlayerMoveOutOfScreen = true;
+    player.x = app.screen.width * 1.5;
+    updateCanvas("left", app.screen.width * 1);
+
+    battleMusic.pause();
+    ambientMusic.play();
+
+    setTimeout(() => {
+        dialogue(
+            oldMan, 
+            {
+                text: "Welcome to the forest, young soldier.\r\nYou are probably curious about the bug boss, right?\r\nWell, I saved you from the bug boss, but you have to defeat it yourself.\r\nTake this sword and chi, they will help you.",
+                padding: 5,
+            }, 
+            oldManContainer
+        );
+    }, 500);
+}
 
 function showBackground(blurLevel) {
     document.getElementById("instructionBackground").classList.add("instruction-background-show");
@@ -914,45 +978,59 @@ function closeInstructionAlert() {
 }
 
 function unlockAbilityShow(ability, descriptions, imgSrc) {
-    if (unlockedAbilities.includes(ability)) {
-        return;
-    }
-
-    try {
-        document.getElementById("abilityTips").remove();
-    }
-    catch (err) {
-
-    }
-
-    pauseGame();
-    showBackground(3);
-    unlockedAbilities.push(ability);
-    document.getElementById("abilityName").innerHTML = ability;
-    document.getElementById("abilityDescription").innerHTML = descriptions.description;
-    document.getElementById("abilityImg").src = imgSrc;
-    document.getElementById("unlockAbility").classList.add('unlock-ability-show');
-    document.getElementById("instructionContent").innerHTML += "<br><p>" + descriptions.instruction + "</p>";
-
-    unlockAbilitySound.play();
-    document.addEventListener("keydown", function hideUnlockAbilityKeydown(e) {
-        if (e.key === "Escape") {
-            unlockAbilityHide();
-            document.removeEventListener('keydown', hideUnlockAbilityKeydown);
+    return new Promise((resolve) => {
+        if (unlockedAbilities.includes(ability)) {
+            resolve(); // Immediately resolve if ability is already unlocked
+            return;
         }
-    })
+
+        try {
+            document.getElementById("abilityTips").remove();
+        } catch (err) {
+
+        }
+
+        pauseGame();
+        showBackground(3);
+        unlockedAbilities.push(ability);
+        document.getElementById("abilityName").innerHTML = ability;
+        document.getElementById("abilityDescription").innerHTML = descriptions.description;
+        document.getElementById("abilityImg").src = imgSrc;
+        document.getElementById("unlockAbility").classList.add('unlock-ability-show');
+        document.getElementById("instructionContent").innerHTML += "<br><p>" + descriptions.instruction + "</p>";
+
+        unlockAbilitySound.play();
+        const hideUnlockAbilityKeydown = (e) => {
+            if (e.key === "Escape") {
+                unlockAbilityHide();
+                resolve(); // Resolve the promise when the window is closed
+                document.removeEventListener('keydown', hideUnlockAbilityKeydown);
+            }
+        };
+
+        document.getElementById("hideUnlockAbility").addEventListener('click', () => {
+            unlockAbilityHide();
+            resolve(); // Resolve the promise when the window is closed
+        });
+
+        document.addEventListener("keydown", hideUnlockAbilityKeydown);
+    });
 }
 
+// The existing function to hide the unlock ability window
 function unlockAbilityHide() {
     resumeGame();
     hideBackground();
     document.getElementById("unlockAbility").classList.remove('unlock-ability-show');
-    document.getElementById("openInstruction").style.animation = "instruction-highlight-aniamtion 2s";
-    const alertInstruction = document.getElementById("checkInstructionAlert");
-    alertInstruction.classList.add("check-instruction-alert-show")
+    document.getElementById("openInstruction").style.animation = "instruction-highlight-animation 2s";
+    if (!checkInstructionAlertAlready) {
+        const alertInstruction = document.getElementById("checkInstructionAlert");
+        alertInstruction.classList.add("check-instruction-alert-show")
+        window.location.href = "#checkInstructionAlert";
+        checkInstructionAlertAlready = true;
+    }
     ambientMusic.volume = 1;
     battleMusic.volume = 1;
-    window.location.href = "#checkInstructionAlert";
 }
 
 function keysDown(e) {
@@ -1173,30 +1251,36 @@ function playerRoll() {
     }
 }
 
-function dialogue(speaker, message) {
+function dialogue(speaker, message, container) {
     if (currentDialogue) {
         // Only one dialogue can be shown at a time
         console.log("Dialogue is already shown");
         return;
     }
 
-    let dialogueBg = new PIXI.Graphics();
-    dialogueBg.anchor = 0.5;
-    dialogueBg.beginFill('#d69e04');
-
-    const messageArray = message.text.split("\r\n"); // split the message by the new line
-    function showMessage() {
+    const messageArray = message.text.split("\r\n"); // split the message by new lines
+    async function showMessage() {
         const currentMsg = messageArray[0];
         if (!currentMsg) {
             hideDialogue();
             return;
         }
 
+        if (speaker.label.name === "Old man" && currentMsg.includes("chi")) {
+            await unlockAbilityShow("Sword Attack", {
+                description: "<b>Left/Right</b> click to use sword attack, deals 20 damage.",
+                instruction: "<b>Left/Right</b> click to use sword attack",
+            }, "./src/image/player/player_sword_attack.gif");
+            await unlockAbilityShow("Chi attack", {
+                description: "Press <b>f</b> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
+                instruction: "Press <b>f</b> to use Chi attack",
+            }, "./src/image/player/player_chi_attack.gif");
+        }
+
         const randomIndex = Math.floor(Math.random() * characterStartSpeaking.length);
         characterStartSpeaking[randomIndex].currentTime = 0;
         characterStartSpeaking[randomIndex].play();
 
-        playerIsClickingButton = true;
         let msg = new PIXI.Text(
             currentMsg,
             {
@@ -1206,11 +1290,11 @@ function dialogue(speaker, message) {
             }
         )
         msg.anchor = 0.5;
-        msg.x = message.x;
-        msg.y = message.y;
+        msg.x = speaker.x;
+        msg.y = speaker.getBounds().minY - 20;
     
         let speakerName = new PIXI.Text(
-            speaker,
+            speaker.label.name,
             {
                 fontFamily: "Arial",
                 fontSize: 15,
@@ -1219,17 +1303,30 @@ function dialogue(speaker, message) {
             }
         )
         speakerName.anchor = 0.5;
-        speakerName.x = message.x - msg.width / 2 + speakerName.width / 2;
-        speakerName.y = message.y - speakerName.height - message.padding ;
+        speakerName.x = msg.x - msg.width / 2 + speakerName.width / 2;
+        speakerName.y = msg.y - speakerName.height - message.padding 
         
-        dialogueBg.clear();
+        let dialogueBg = new PIXI.Graphics();
+        dialogueBg.anchor = (0.5, 0.5); 
         dialogueBg.beginFill('#d69e04');
-        dialogueBg.roundRect(msg.x - msg.width / 2 - message.padding, msg.y - msg.height - speakerName.height - message.padding, msg.width + message.padding * 2, msg.height + speakerName.height * 2 + message.padding * 2, 10);
+        dialogueBg.roundRect(
+            msg.x - msg.width / 2 - message.padding, 
+            msg.y - msg.height - speakerName.height - message.padding, 
+            msg.width + message.padding * 2, 
+            msg.height + speakerName.height * 2 + message.padding * 2, 
+            10
+        );
         dialogueBg.endFill();
 
-        app.stage.addChild(dialogueBg);
-        app.stage.addChild(msg);
-        app.stage.addChild(speakerName);
+        if (container) {
+            container.addChild(dialogueBg);
+            container.addChild(msg);
+            container.addChild(speakerName);
+        } else {
+            app.stage.addChild(dialogueBg);
+            app.stage.addChild(msg);
+            app.stage.addChild(speakerName);
+        }
 
         currentDialogue = {
             dialogueBg: dialogueBg,
@@ -1272,8 +1369,13 @@ function dialogue(speaker, message) {
             messageArray.shift();
             showMessage();
         })
+
+        if (container) {
+            container.addChild(nextDialogueArrow);
+        } else {
+            app.stage.addChild(nextDialogueArrow);
+        }
         
-        app.stage.addChild(nextDialogueArrow);
         currentDialogue["arrow"] = nextDialogueArrow;
     }
 
@@ -1301,19 +1403,28 @@ function dialogue(speaker, message) {
             closeDialogueX.style.fill = "black";
         })
         closeDialogueX.on("click", () => {
-            playerIsClickingButton = false;
             hideDialogue();
         })
-    
-        app.stage.addChild(closeDialogueX);
+
+        if (container) {
+            container.addChild(closeDialogueX);
+        } else {
+            app.stage.addChild(closeDialogueX);
+        }
     }
 
     function hideCurrentMessage() {
         app.stage.removeChild(currentDialogue.speakerName);
         app.stage.removeChild(currentDialogue.msg);
+        app.stage.removeChild(currentDialogue.dialogueBg);
         if (currentDialogue.arrow) {
             app.stage.removeChild(currentDialogue.arrow);
+            currentDialogue.arrow.destroy();
         }
+
+        currentDialogue.speakerName.destroy();
+        currentDialogue.msg.destroy();
+        currentDialogue.dialogueBg.destroy();
     }
 
     showMessage();
@@ -1331,10 +1442,12 @@ function hideDialogue() {
 
     if (currentDialogue.nextDialogueArrow) {
         app.stage.removeChild(currentDialogue.arrow);
+        currentDialogue.arrow.destroy();
     }
     
     if (currentDialogue.closeDialogueX) {
         app.stage.removeChild(currentDialogue.closeDialogueX);
+        currentDialogue.closeDialogueX.destroy();
     }
 
     currentDialogue.dialogueBg.destroy();
@@ -1416,7 +1529,9 @@ function playerJump() {
 
 function updateCanvas(direction, amount = charactersInfo.player.speed) {
     // The direction here refers to the direction of the canvas' movement
-    if (!allowPlayerMoveOutOfScreen) return;
+    if (!allowPlayerMoveOutOfScreen) {
+        return;
+    }
 
     let playerIsNearLeftBorder = false;
     let playerIsNearRightBorder = false;
@@ -1436,12 +1551,11 @@ function updateCanvas(direction, amount = charactersInfo.player.speed) {
                 }
             } else if (direction === "right") {
                 // Player is moving left, background is moving right
-
                 if (child.label != "healthBar" && child.label != "energyBar") {
                     child.x += amount;
                 }
             }
-        }
+        } 
     });
 }
 
@@ -1897,9 +2011,8 @@ function elementDied(element) {
                 description: "Press <b>q</b> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
                 instruction: "Press <b>q</b> to roll",
             }, "./src/image/player/player_roll.gif");
-            allowPlayerMoveOutOfScreen = true;
-            player.x = app.screen.width * 1.5;
-            updateCanvas("left", app.screen.width * 1);
+            playerBiome = "forest";
+            transitionToForest();
         }, 1500);
     }
 }
@@ -1930,7 +2043,6 @@ function resumeGame() {
 }
 
 function gameOver() {
-    console.log("Game over!");
     document.removeEventListener('keydown', keysDown);
     document.removeEventListener('keyup', keysUp);
     document.querySelector("#gameDiv").removeEventListener('mousedown', mouseDown);
@@ -2016,7 +2128,7 @@ function gameOver() {
     app.stage.addChild(quitButton);
 }
 
-function gameLoop(delta = 1) {
+async function gameLoop(delta = 1) {
     // The gameloop function is called 60 times per second (60fps)
     // If the player is dead, stop the game loop
     if (!charactersInfo.player.alive) {
@@ -2092,6 +2204,7 @@ function gameLoop(delta = 1) {
             } else if (cntAfterAttack < 10 + playerHoldSword) {
                 cntAfterAttack++;
             } else {
+                charactersInfo.player.speed = gameWidth * 0.0075;
                 sword.visible = false;
                 playerIsSwordAttacking = false;
                 cntAfterAttack = 0;
@@ -2104,6 +2217,7 @@ function gameLoop(delta = 1) {
             } else if (cntAfterAttack < 10 + playerHoldSword) {
                 cntAfterAttack++;
             } else {
+                charactersInfo.player.speed = gameWidth * 0.0075;
                 sword.visible = false;
                 playerIsSwordAttacking = false;
                 cntAfterAttack = 0;
@@ -2205,19 +2319,38 @@ function gameLoop(delta = 1) {
         }
     }
 
-    if (!bugBoss.label.alive) {
-        // Update the background border coords
-        for (const background of backgrounds) {
-            if (background.label === "forest1") {
-                currentBackgroundPosition.minX = background.getBounds().minX;
+    switch (playerBiome) {
+        case "forest":
+            for (const background of backgrounds) {
+                if (background.label === "forest1") {
+                    currentBackgroundPosition.minX = background.getBounds().minX;
+                } else if (background.label === "forest3") {
+                    currentBackgroundPosition.maxX = background.getBounds().maxX;
+                }
             }
-            else if (background.label === "forest3") {
-                currentBackgroundPosition.maxX = background.getBounds().maxX;
+
+            // The old man will move up and down
+            if (oldMan.y <= app.screen.height / 2 + gameHeight * 0.3 && oldMan.label.movingDirection === "down") {
+                oldManContainer.children.forEach((child) => {
+                    child.y += 1;
+                });
+                oldMan.label.movingDirection = "down";
+            } else {
+                oldMan.label.movingDirection = "up";
             }
-        }
+
+            if (oldMan.y >= app.screen.height / 2 + gameHeight * 0.1 && oldMan.label.movingDirection === "up") {
+                oldManContainer.children.forEach((child) => {
+                    child.y -= 1;
+                });
+                oldMan.label.movingDirection = "up";
+            } else {
+                oldMan.label.movingDirection = "down";
+            }
+            break;
     }
 
-    // check key press
+    // Check key press
     // During boss fight, player cannot move out of the screen
     let isMoving = false;
     if (key['a'] || key["ArrowLeft"]) {
@@ -2277,15 +2410,11 @@ function gameLoop(delta = 1) {
     if (key['p']) {
         // Just for testing, unlock all abilities
         // use gif to better show the abilities
-        unlockAbilityShow("Chi attack", {
-            description: "Press <b>f</b> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
-            instruction: "Press <b>f</b> to use Chi attack",
-        }, "./src/image/player/player_chi_attack.gif");
-        unlockAbilityShow("Roll", {
+        await unlockAbilityShow("Roll", {
             description: "Press <b>q</b> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
             instruction: "Press <b>q</b> to roll",
         }, "./src/image/player/player_roll.gif");
-        unlockAbilityShow("Sprint", {
+        await unlockAbilityShow("Sprint", {
             description: "Press <b>c</b> to sprint, doubles the player's speed for 3 seconds. <br>When sprinting, the player can hold the sword and attack while walking<br>Has a 5 seconds cooldown.",
             instruction: "Press <b>c</b> to sprint",
         }, "./src/image/player/player_sprint.gif");
@@ -2293,15 +2422,6 @@ function gameLoop(delta = 1) {
     if (key['o']) {
         // Just for testing
         elementDamaged(player, charactersInfo.player.status.maxHealth);
-    }
-    if (key['i']) {
-        // Just for testing
-        dialogue("Player", {
-            text: "Hello, I am the player.\r\nI love playing this game!",
-            x: player.x,
-            y: player.y - 75,
-            padding: 5,
-        });
     }
 
     // Abilities key press
