@@ -24,12 +24,14 @@ let currentBackgroundPosition = {
     maxX: 0,
 };
 let gamePaused = false;
+let canvasFadeOutOpacity;
 let playerDeathNum = 0;
 let playerBiome = "bugBoss"; // The default biome is bug boss (which is not typically a biome)
 let playerRegenerationInterval = undefined;
 let playerIsClickingButton = false;
 let playerIsRegenrating = false;
 let isStartingGame = false;
+let coverBackground;
 let gameIsRunning = false;
 let allowPlayerMoveOutOfScreen = false;
 let currentDialogue = undefined;
@@ -57,8 +59,9 @@ window.addEventListener("resize", () => {
 // Load the textures
 // Load the background images
 const cg = await PIXI.Assets.load('./src/image/background/cg.png');
-const bugBossBackground = await PIXI.Assets.load('./src/image/background/bug_boss_background.png');
+const bugBossBackground = await PIXI.Assets.load('./src/image/background/bug_boss.png');
 const forestBackground = await PIXI.Assets.load('./src/image/background/forest.png');
+const dungeonBackground = await PIXI.Assets.load('./src/image/background/dungeon.png');
 
 // Load the player image
 const playerFaceRight = await PIXI.Assets.load('./src/image/player/player_face_right.png');
@@ -99,6 +102,10 @@ const littleBugWalkLeft1 = await PIXI.Assets.load('./src/image/monsters/bug_boss
 const littleBugWalkLeft2 = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_walk_left_2.png');
 const littleBugDied = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_die.png');
 const littleBugStingTexture = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_sting.png'); // there is no left or right image for the little bug sting
+
+const finalBossBody = await PIXI.Assets.load('./src/image/monsters/final_boss/final_boss_body.png');
+const finalBossArm = await PIXI.Assets.load('./src/image/monsters/final_boss/final_boss_arm.png');
+const finalBossSword = await PIXI.Assets.load('./src/image/monsters/final_boss/final_boss_sword.png');
 
 // Load the symbols image
 const monsterAnger = await PIXI.Assets.load('./src/image/monsters/angry.png');
@@ -289,7 +296,7 @@ const charactersInfo = {
         damagedSound: [new Audio('./src/audio/player/player_damaged.mp3')],
         dieSound: new Audio('./src/audio/player/player_die.mp3'),
     },
-    oldMan: { 
+    oldMan: {
         // the old man is special, it is more like a ghost that cannot be attacked and affected by the gravity
         name: "Old man",
         alive: true,
@@ -497,6 +504,58 @@ const monstersInfo = {
             new Audio('./src/audio/little_bug/little_bug_damaged_3.mp3'),
         ],
         dieSound: new Audio('./src/audio/little_bug/little_bug_die.mp3'),
+    },
+    finalBoss: {
+        name: "finalBoss",
+        alive: true,
+        location: {
+            x: app.screen.width * 2,
+            y: app.screen.height / 2,
+        },
+        size: {
+            width: diagonalLength * 0.25,
+            height: diagonalLength * 0.25,
+            average: (diagonalLength * 0.25 + diagonalLength * 0.25) / 2,
+        },
+        status: {
+            maxHealth: 750,
+            health: 750,
+            shield: false,
+        },
+        exclamationMarkPosition: {
+            y: -(gameHeight * 0.175),
+            faceRightX: (gameWidth * 0.025),
+            faceLeftX: -(gameWidth * 0.025),
+        },
+        entityRemainHealthPosition: {
+            y: -(gameHeight * 0.1),
+            faceRightX: (gameWidth * 0.025),
+            faceLeftX: -(gameWidth * 0.025),
+        },
+        isBlocked: {
+            left: false,
+            right: false,
+        },
+        visibility: true,
+        anchor: 0.5,
+        // attack: finalBossAttack, // WIP
+        range: gameWidth * 0.5,
+        speed: 0,
+        speedY: 0,
+        floorY: gameHeight * 6 / 7,
+        isJumping: false,
+        texture: {},
+        animationSpeed: 0.15,
+        damageCoolDown: 0.5,
+        inDamageCooldown: false,
+        isChasing: false,
+        isAttacking: false,
+        damagedSound: [
+            new Audio('./src/audio/final_boss/final_boss_damaged_1.mp3'),
+            new Audio('./src/audio/final_boss/final_boss_damaged_2.mp3'),
+            new Audio('./src/audio/final_boss/final_boss_damaged_3.mp3'),
+            new Audio('./src/audio/final_boss/final_boss_damaged_4.mp3')
+        ],
     },
     reset: function () {
         this.strikePig.status.health = this.strikePig.status.maxHealth;
@@ -721,12 +780,13 @@ const unlockAbilitySound = new Audio('./src/audio/player/unlock_ability.mp3');
 const playerChiAttackSound = new Audio('./src/audio/player/player_chi_attack.mp3');
 const playerRollSound = new Audio('./src/audio/player/player_roll.mp3');
 const playerRollReadySound = new Audio('./src/audio/player/roll_ready.mp3');
-const characterStartSpeaking = [ 
+const characterStartSpeaking = [
     // This not only includes the player, but also other characters
     new Audio('./src/audio/player/character_start_speaking_1.mp3'),
     new Audio('./src/audio/player/character_start_speaking_2.mp3'),
     new Audio('./src/audio/player/character_start_speaking_3.mp3'),
 ];
+const playerTeleportSound = new Audio('./src/audio/player/player_teleport.mp3');
 
 function askForInit() {
     if (confirm("Do you want to view an instruction first before you start?")) {
@@ -738,7 +798,7 @@ function askForInit() {
 }
 
 // Initialize the game
-function init() {
+async function init() {
     console.log("%c Game started!", "color: lightblue; font-size: 24px;");
     try {
         app.stage.children.forEach((child) => {
@@ -782,7 +842,7 @@ function init() {
     ambientMusic.volume = 1;
 
     // Must add the background image first otherwise the other images will be covered by the background image
-    let bugBossBackground = PIXI.Sprite.from('./src/image/background/bug_boss_background.png');
+    let bugBossBackground = PIXI.Sprite.from('./src/image/background/bug_boss.png');
     bugBossBackground.anchor = 0.5;
     bugBossBackground.x = app.screen.width / 2;
     bugBossBackground.y = app.screen.height / 2;
@@ -804,6 +864,15 @@ function init() {
         app.stage.addChild(forestBackground);
         backgrounds.push(forestBackground);
     }
+    let dungeonBackground = PIXI.Sprite.from('./src/image/background/dungeon.png');
+    dungeonBackground.anchor = 0.5;
+    dungeonBackground.x = gameWidth * (-0.5);
+    dungeonBackground.y = gameHeight / 2;
+    dungeonBackground.width = gameWidth;
+    dungeonBackground.height = gameHeight;
+    dungeonBackground.label = "dungeon";
+    app.stage.addChild(dungeonBackground);
+    backgrounds.push(dungeonBackground);
 
     // Set up the entities
     // The order matters, the last element will be on top of the previous elements (图层顺序)
@@ -895,8 +964,11 @@ function init() {
 
     // Teleport the player to the forest when the player dies
     if (playerDeathNum == 1) {
-        playerBiome = "forest";
-        setTimeout(transitionToForest, 100);
+        playerTeleportSound.currentTime = 0;
+        playerTeleportSound.play();
+        await canvasFadeOut(2000);
+        setTimeout(transitionToForest, 2000);
+        await canvasFadeIn(2000);
     }
 }
 
@@ -908,21 +980,47 @@ document.getElementById("openInstruction").addEventListener('click', (event) => 
 document.getElementById("closeInstruction").addEventListener('click', hideInstructions);
 document.getElementById("closeAlertInstruction").addEventListener('click', closeInstructionAlert);
 
-function transitionToForest() {
+async function transitionToForest() {
     allowPlayerMoveOutOfScreen = true;
+    playerBiome = "forest";
     player.x = app.screen.width * 1.5;
-    updateCanvas("left", app.screen.width * 1);
+    updateCanvas("left", app.screen.width, "teleport");
 
     battleMusic.pause();
+    ambientMusic.currentTime = 0;
     ambientMusic.play();
 
     setTimeout(() => {
         dialogue(
-            oldMan, 
+            oldMan,
             {
                 text: "Welcome to the forest, young soldier.\r\nYou are probably curious about the bug boss, right?\r\nWell, I saved you from the bug boss, but you have to defeat it yourself.\r\nTake this sword and chi, they will help you.",
                 padding: 5,
-            }, 
+            },
+            oldManContainer
+        );
+    }, 500);
+}
+
+async function transitionToDungeon() {
+    allowPlayerMoveOutOfScreen = false;
+    player.x = -app.screen.width * 0.5;
+    playerBiome = "dungeon";
+    updateCanvas("right", app.screen.width, "teleport");
+
+    oldManContainer.children.forEach((child) => {
+        child.visible = true;
+        child.x = player.x;
+        child.y = player.y;
+    });
+
+    setTimeout(() => {
+        dialogue(
+            oldMan,
+            {
+                text: "Welcome to the dungeon, young soldier.\r\nThe bug boss is waiting for you at the end of the dungeon.\r\nYou have to defeat it to save the world.",
+                padding: 5,
+            },
             oldManContainer
         );
     }, 500);
@@ -1268,12 +1366,12 @@ function dialogue(speaker, message, container) {
 
         if (speaker.label.name === "Old man" && currentMsg.includes("chi")) {
             await unlockAbilityShow("Sword Attack", {
-                description: "<b>Left/Right</b> click to use sword attack, deals 20 damage.",
-                instruction: "<b>Left/Right</b> click to use sword attack",
+                description: "<kbd>Left/Right</kbd> click to use sword attack, deals 20 damage.",
+                instruction: "<kbd>Left/Right</kbd> click to use sword attack",
             }, "./src/image/player/player_sword_attack.gif");
             await unlockAbilityShow("Chi attack", {
-                description: "Press <b>f</b> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
-                instruction: "Press <b>f</b> to use Chi attack",
+                description: "Press <kbd>F</kbd> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
+                instruction: "Press <kbd>F</kbd> to use Chi attack",
             }, "./src/image/player/player_chi_attack.gif");
         }
 
@@ -1292,7 +1390,7 @@ function dialogue(speaker, message, container) {
         msg.anchor = 0.5;
         msg.x = speaker.x;
         msg.y = speaker.getBounds().minY - 20;
-    
+
         let speakerName = new PIXI.Text(
             speaker.label.name,
             {
@@ -1304,16 +1402,16 @@ function dialogue(speaker, message, container) {
         )
         speakerName.anchor = 0.5;
         speakerName.x = msg.x - msg.width / 2 + speakerName.width / 2;
-        speakerName.y = msg.y - speakerName.height - message.padding 
-        
+        speakerName.y = msg.y - speakerName.height - message.padding
+
         let dialogueBg = new PIXI.Graphics();
-        dialogueBg.anchor = (0.5, 0.5); 
+        dialogueBg.anchor = (0.5, 0.5);
         dialogueBg.beginFill('#d69e04');
         dialogueBg.roundRect(
-            msg.x - msg.width / 2 - message.padding, 
-            msg.y - msg.height - speakerName.height - message.padding, 
-            msg.width + message.padding * 2, 
-            msg.height + speakerName.height * 2 + message.padding * 2, 
+            msg.x - msg.width / 2 - message.padding,
+            msg.y - msg.height - speakerName.height - message.padding,
+            msg.width + message.padding * 2,
+            msg.height + speakerName.height * 2 + message.padding * 2,
             10
         );
         dialogueBg.endFill();
@@ -1334,7 +1432,7 @@ function dialogue(speaker, message, container) {
             speakerName: speakerName,
         }
 
-        if (messageArray.length > 1) {   
+        if (messageArray.length > 1) {
             addDialogueArrow(msg);
         } else {
             addCloseButton(msg);
@@ -1355,7 +1453,7 @@ function dialogue(speaker, message, container) {
         nextDialogueArrow.anchor = 0.5;
         nextDialogueArrow.x = msg.x + msg.width / 2 - message.padding * 2;
         nextDialogueArrow.y = msg.y - msg.height - message.padding * 2;
-    
+
         nextDialogueArrow.interactive = true;
         nextDialogueArrow.buttonMode = true;
         nextDialogueArrow.on("mouseover", () => {
@@ -1375,7 +1473,7 @@ function dialogue(speaker, message, container) {
         } else {
             app.stage.addChild(nextDialogueArrow);
         }
-        
+
         currentDialogue["arrow"] = nextDialogueArrow;
     }
 
@@ -1393,7 +1491,7 @@ function dialogue(speaker, message, container) {
         closeDialogueX.x = msg.x + msg.width / 2 - message.padding * 2;
         closeDialogueX.y = msg.y - msg.height - message.padding * 2;
         currentDialogue["closeDialogueX"] = closeDialogueX;
-    
+
         closeDialogueX.interactive = true;
         closeDialogueX.buttonMode = true;
         closeDialogueX.on("mouseover", () => {
@@ -1444,7 +1542,7 @@ function hideDialogue() {
         app.stage.removeChild(currentDialogue.arrow);
         currentDialogue.arrow.destroy();
     }
-    
+
     if (currentDialogue.closeDialogueX) {
         app.stage.removeChild(currentDialogue.closeDialogueX);
         currentDialogue.closeDialogueX.destroy();
@@ -1527,9 +1625,9 @@ function playerJump() {
     charactersInfo.player.speedY = -20;
 }
 
-function updateCanvas(direction, amount = charactersInfo.player.speed) {
+function updateCanvas(direction, amount = charactersInfo.player.speed, mode = "normal") {
     // The direction here refers to the direction of the canvas' movement
-    if (!allowPlayerMoveOutOfScreen) {
+    if (!allowPlayerMoveOutOfScreen && mode === "normal") {
         return;
     }
 
@@ -1543,7 +1641,7 @@ function updateCanvas(direction, amount = charactersInfo.player.speed) {
     }
 
     app.stage.children.forEach((child) => {
-        if (!playerIsNearLeftBorder && !playerIsNearRightBorder) {
+        if ((!playerIsNearLeftBorder && !playerIsNearRightBorder) || mode === 'teleport') {
             if (direction === "left") {
                 // Player is moving right, background is moving left
                 if (child.label != "healthBar" && child.label != "energyBar") {
@@ -1555,8 +1653,42 @@ function updateCanvas(direction, amount = charactersInfo.player.speed) {
                     child.x += amount;
                 }
             }
-        } 
+        }
     });
+}
+
+function canvasFadeOut(duration) {
+    // Fade out the canvas when the player dies
+    return new Promise((resolve) => {
+        coverBackground = new PIXI.Graphics();
+        coverBackground.beginFill('black',);
+        coverBackground.rect(0, 0, app.screen.width, app.screen.height);
+        coverBackground.endFill();
+        coverBackground.alpha = 0;
+        coverBackground.zIndex = 100;
+        app.stage.addChild(coverBackground);
+
+        for (let i = 0; i <= 1; i += 0.01) {
+            setTimeout(() => {
+                console.log(i);
+                coverBackground.alpha = i;
+            }, i * duration);
+        }
+        setTimeout(resolve, duration);
+    })
+}
+
+function canvasFadeIn(duration) {
+    // Fade in the canvas when the player respawns
+    return (new Promise((resolve) => {
+        for (let i = 1; i >= 0; i -= 0.01) {
+            setTimeout(() => {
+                console.log(i);
+                coverBackground.alpha = i;
+            }, (1 - i) * duration);
+        }
+        setTimeout(resolve, duration);
+    }))
 }
 
 function generateRandomCoords(min, max) {
@@ -1868,7 +2000,6 @@ function checkEntitiesFalling() {
                 });
             }
             catch (err) {
-                // console.log(entity.label.name + " does not have a container");
                 entity.y += entity.label.speedY;
             }
         } else {
@@ -2008,8 +2139,8 @@ function elementDied(element) {
     if (element.label.name === "bugBoss") {
         setTimeout(() => {
             unlockAbilityShow("Roll", {
-                description: "Press <b>q</b> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
-                instruction: "Press <b>q</b> to roll",
+                description: "Press <kbd>Q</kbd> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
+                instruction: "Press <kbd>Q</kbd> to roll",
             }, "./src/image/player/player_roll.gif");
             playerBiome = "forest";
             transitionToForest();
@@ -2100,6 +2231,7 @@ function gameOver() {
     quitButton.on('click', () => {
         console.log("Quit");
         if (confirm("Are you sure you want to quit?")) {
+            window.open('about:blank', '_self');
             window.close();
         }
     });
@@ -2193,7 +2325,7 @@ async function gameLoop(delta = 1) {
         }
     }
 
-    if (playerIsSwordAttacking && !playerIsClickingButton) {
+    if (playerIsSwordAttacking && !playerIsClickingButton && unlockedAbilities.includes("Sword Attack")) {
         sword.visible = true;
         sword.y = player.y + 8;
         if (charactersInfo.player.attack.sword.direction === "right") {
@@ -2321,6 +2453,7 @@ async function gameLoop(delta = 1) {
 
     switch (playerBiome) {
         case "forest":
+            allowPlayerMoveOutOfScreen = true;
             for (const background of backgrounds) {
                 if (background.label === "forest1") {
                     currentBackgroundPosition.minX = background.getBounds().minX;
@@ -2348,6 +2481,10 @@ async function gameLoop(delta = 1) {
                 oldMan.label.movingDirection = "down";
             }
             break;
+
+        // case "dungeon":
+        //     allowPlayerMoveOutOfScreen = false;
+        //     break;
     }
 
     // Check key press
@@ -2374,7 +2511,7 @@ async function gameLoop(delta = 1) {
         if (!charactersInfo.player.isBlocked.left) {
             player.x -= charactersInfo.player.speed;
             isMoving = true;
-            updateCanvas("right");
+            updateCanvas("right", charactersInfo.player.speed);
         }
     }
     if (key['d'] || key["ArrowRight"]) {
@@ -2398,7 +2535,7 @@ async function gameLoop(delta = 1) {
         if (!charactersInfo.player.isBlocked.right) {
             player.x += charactersInfo.player.speed;
             isMoving = true;
-            updateCanvas("left");
+            updateCanvas("left", charactersInfo.player.speed);
         }
     }
     if ((key[' '] || key['w'] || key['ArrowUp']) && !charactersInfo.player.isJumping) {
@@ -2409,19 +2546,22 @@ async function gameLoop(delta = 1) {
     // Test
     if (key['p']) {
         // Just for testing, unlock all abilities
-        // use gif to better show the abilities
-        await unlockAbilityShow("Roll", {
-            description: "Press <b>q</b> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
-            instruction: "Press <b>q</b> to roll",
-        }, "./src/image/player/player_roll.gif");
-        await unlockAbilityShow("Sprint", {
-            description: "Press <b>c</b> to sprint, doubles the player's speed for 3 seconds. <br>When sprinting, the player can hold the sword and attack while walking<br>Has a 5 seconds cooldown.",
-            instruction: "Press <b>c</b> to sprint",
-        }, "./src/image/player/player_sprint.gif");
+        await unlockAbilityShow("Sword Attack", {
+            description: "<kbd>Left/Right</kbd> click to use sword attack, deals 20 damage.",
+            instruction: "<kbd>Left/Right</kbd> click to use sword attack",
+        }, "./src/image/player/player_sword_attack.gif");
+        await unlockAbilityShow("Chi attack", {
+            description: "Press <kbd>F</kbd> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
+            instruction: "Press <kbd>F</kbd> to use Chi attack",
+        }, "./src/image/player/player_chi_attack.gif");
     }
     if (key['o']) {
         // Just for testing
         elementDamaged(player, charactersInfo.player.status.maxHealth);
+    }
+    if (key['i'] && playerBiome !== "dungeon") {
+        // Just for testing
+        transitionToDungeon();
     }
 
     // Abilities key press
