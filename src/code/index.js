@@ -1,5 +1,5 @@
 // Canvas set ups
-let app;
+var app;
 app = new PIXI.Application();
 globalThis.__PIXI_APP__ = app;
 
@@ -14,27 +14,25 @@ await app.init(
     }
 );
 document.body.querySelector("#gameDiv").appendChild(app.canvas);
-app.stage.interactive = true;
 
 // Game variables
 const gravity = 1.5;
-const chiAttackCoolDown = 2;
 let currentBackgroundPosition = {
     minX: 0,
     maxX: 0,
 };
 let gamePaused = false;
-let canvasFadeOutOpacity;
 let playerDeathNum = 0;
+let canvasOffsetDistance = 0;
 let playerBiome = "bugBoss"; // The default biome is bug boss (which is not typically a biome)
 let playerRegenerationInterval = undefined;
 let playerIsClickingButton = false;
 let playerIsRegenrating = false;
 let isStartingGame = false;
-let coverBackground;
 let gameIsRunning = false;
 let allowPlayerMoveOutOfScreen = false;
 let currentDialogue = undefined;
+let coverBackground;
 let minFloorHeight = gameHeight * 6 / 7;
 let playerIsSwordAttacking = false;
 let playerIsChiAttacking = false;
@@ -44,6 +42,8 @@ let cntAfterAttack = 0;
 let inCoolDown = 0;
 let playerHoldSword = 0;
 let checkInstructionAlertAlready = false;
+let dialogueReminderAlready = false;
+let audios = [];
 let unlockedAbilities = [];
 let key = {};
 let mouse = {};
@@ -306,8 +306,8 @@ const charactersInfo = {
             average: (diagonalLength * 0.15 + diagonalLength * 0.15) / 2,
         },
         location: {
-            x: app.screen.width * 1.5 + gameWidth * 0.2,
-            y: app.screen.height / 2 + gameHeight * 0.1,
+            x: -app.screen.width * 0.5,
+            y: app.screen.height / 2,
         },
         speed: 0,
         speedY: 0,
@@ -334,8 +334,8 @@ const charactersInfo = {
         }, 1500);
 
         this.oldMan.alive = true;
-        this.oldMan.location.x = app.screen.width * 1.5 + gameWidth * 0.2;
-        this.oldMan.location.y = app.screen.height / 2 + gameHeight * 0.1;
+        this.oldMan.location.x = -app.screen.width * 0.5;
+        this.oldMan.location.y = app.screen.height / 2;
         this.oldMan.speed = 0;
         this.oldMan.speedY = 0;
         this.oldMan.isJumping = false;
@@ -348,8 +348,8 @@ const monstersInfo = {
         name: "strikePig",
         alive: true,
         location: {
-            x: app.screen.width * 1.5,
-            y: app.screen.height / 2 - 25,
+            x: app.screen.width * 2.5,
+            y: app.screen.height / 2,
         },
         size: {
             width: diagonalLength * 0.2,
@@ -357,19 +357,19 @@ const monstersInfo = {
             average: (diagonalLength * 0.2 + diagonalLength * 0.2) / 2,
         },
         status: {
-            maxHealth: 100,
-            health: 100,
+            health: 150,
+            maxHealth: 150,
             shield: false,
         },
         exclamationMarkPosition: {
-            y: -gameHeight * 0.1,
-            faceRightX: gameWidth * 0.025,
-            faceLeftX: -gameWidth * 0.025,
+            y: -gameHeight * 0.18,
+            faceRightX: gameWidth * 0.03,
+            faceLeftX: -gameWidth * 0.03,
         },
         entityRemainHealthPosition: {
-            y: 0,
-            faceRightX: gameWidth * 0.025,
-            faceLeftX: -gameWidth * 0.025,
+            y: -gameHeight * 0.1,
+            faceRightX: gameWidth * 0.04,
+            faceLeftX: -gameWidth * 0.04,
         },
         isBlocked: {
             left: false,
@@ -378,7 +378,7 @@ const monstersInfo = {
         visibility: true,
         anchor: 0.5,
         attack: strikePigAttack,
-        range: 500,
+        range: gameWidth * 0.25,
         speed: 2,
         speedY: 0,
         floorY: gameHeight * 6 / 7,
@@ -475,7 +475,7 @@ const monstersInfo = {
             faceLeftX: -(gameWidth * 0.01),
         },
         entityRemainHealthPosition: {
-            y: (gameHeight * 0.01),
+            y: gameHeight * 0.01,
             faceRightX: (gameWidth * 0.01),
             faceLeftX: -(gameWidth * 0.01),
         },
@@ -560,8 +560,8 @@ const monstersInfo = {
     reset: function () {
         this.strikePig.status.health = this.strikePig.status.maxHealth;
         this.strikePig.alive = true;
-        this.strikePig.location.x = app.screen.width / 2 - 1000;
-        this.strikePig.location.y = app.screen.height / 2 - 25;
+        this.strikePig.location.x = app.screen.width * 2;
+        this.strikePig.location.y = app.screen.height / 2;
         this.strikePig.speedY = 0;
         this.strikePig.isJumping = false;
         this.strikePig.isBlocked.left = false;
@@ -699,8 +699,8 @@ const attacksInfo = {
         speed: gameWidth * 0.015,
         direction: "right",
         location: {
-            x: 0,
-            y: 0,
+            x: app.screen.width / 2,
+            y: app.screen.height / 2,
         },
         size: {
             width: gameWidth * 0.25,
@@ -773,8 +773,10 @@ let healthText, energyText;
 // Audio
 const ambientMusic = new Audio('./src/audio/BGM/ambient.mp3'); // BGM by Rick
 ambientMusic.loop = true;
+audios.push(ambientMusic);
 const battleMusic = new Audio('./src/audio/BGM/battle.mp3'); // BGM by Rick
 battleMusic.loop = true;
+audios.push(battleMusic);
 const freeSwordSound = new Audio('./src/audio/player/free_sword.mp3');
 const unlockAbilitySound = new Audio('./src/audio/player/unlock_ability.mp3');
 const playerChiAttackSound = new Audio('./src/audio/player/player_chi_attack.mp3');
@@ -897,12 +899,18 @@ async function init() {
     app.stage.addChild(oldManContainer);
 
     createStrikePigTexure();
-    strikePig = createMonster(monstersInfo.strikePig, './src/image/monsters/strike_pig/strike_pig_face_left.png', true, true, {
-        texture: monstersInfo.strikePig.texture.faceLeft,
-        animationSpeed: monstersInfo.strikePig.animationSpeed,
-        loop: false,
-        autoPlay: true,
-    }).monster;
+    strikePig = createMonster(
+        monstersInfo.strikePig,
+        './src/image/monsters/strike_pig/strike_pig_face_left.png',
+        true,
+        true,
+        {
+            texture: monstersInfo.strikePig.texture.faceLeft,
+            animationSpeed: monstersInfo.strikePig.animationSpeed,
+            loop: false,
+            autoPlay: false,
+        }
+    ).monster;
     monsters.push(strikePig);
 
     strikePigStrike = createElement(false, strikePigStrike, attacksInfo.strike.size, attacksInfo.strike.location, 0.5, false, './src/image/monsters/strike_pig/strike_face_right.png', attacksInfo.strike);
@@ -964,11 +972,9 @@ async function init() {
 
     // Teleport the player to the forest when the player dies
     if (playerDeathNum == 1) {
-        playerTeleportSound.currentTime = 0;
-        playerTeleportSound.play();
         await canvasFadeOut(2000);
-        setTimeout(transitionToForest, 2000);
-        await canvasFadeIn(2000);
+        canvasFadeIn(2000);
+        transitionToDungeon();
     }
 }
 
@@ -976,25 +982,26 @@ document.getElementById("openInstruction").addEventListener('click', (event) => 
     event.preventDefault();
     showInstructions();
 });
-
 document.getElementById("closeInstruction").addEventListener('click', hideInstructions);
 document.getElementById("closeAlertInstruction").addEventListener('click', closeInstructionAlert);
 
 async function transitionToForest() {
     allowPlayerMoveOutOfScreen = true;
     playerBiome = "forest";
-    player.x = app.screen.width * 1.5;
-    updateCanvas("left", app.screen.width, "teleport");
+    player.x = app.screen.width * 1.5 + canvasOffsetDistance;
+    updateCanvas("left", app.screen.width + canvasOffsetDistance, "teleport");
 
     battleMusic.pause();
     ambientMusic.currentTime = 0;
     ambientMusic.play();
 
+    oldMan.x = app.screen.width * 1.5 + gameWidth * 0.1;
+    oldMan.y = app.screen.height / 2;
     setTimeout(() => {
         dialogue(
             oldMan,
             {
-                text: "Welcome to the forest, young soldier.\r\nYou are probably curious about the bug boss, right?\r\nWell, I saved you from the bug boss, but you have to defeat it yourself.\r\nTake this sword and chi, they will help you.",
+                text: "Welcome back, young soldier.\r\nYou are probably curious about the bug boss, right?\r\nWell, I saved you from the bug boss, but you have to defeat it yourself later on.\r\nTake this sword and chi, they will help you.",
                 padding: 5,
             },
             oldManContainer
@@ -1008,22 +1015,17 @@ async function transitionToDungeon() {
     playerBiome = "dungeon";
     updateCanvas("right", app.screen.width, "teleport");
 
-    oldManContainer.children.forEach((child) => {
-        child.visible = true;
-        child.x = player.x;
-        child.y = player.y;
-    });
-
-    setTimeout(() => {
-        dialogue(
-            oldMan,
-            {
-                text: "Welcome to the dungeon, young soldier.\r\nThe bug boss is waiting for you at the end of the dungeon.\r\nYou have to defeat it to save the world.",
-                padding: 5,
-            },
-            oldManContainer
-        );
-    }, 500);
+    await dialogue(
+        oldMan,
+        {
+            text: "What are you doing here, youg man?\r\nThis place is dangerious, you should leave now!\r\nLet's go back to the forest.",
+            padding: 5,
+        },
+        oldManContainer
+    );
+    await canvasFadeOut(2000);
+    transitionToForest();
+    canvasFadeIn(2000);
 }
 
 function showBackground(blurLevel) {
@@ -1350,188 +1352,217 @@ function playerRoll() {
 }
 
 function dialogue(speaker, message, container) {
-    if (currentDialogue) {
-        // Only one dialogue can be shown at a time
-        console.log("Dialogue is already shown");
-        return;
-    }
-
-    const messageArray = message.text.split("\r\n"); // split the message by new lines
-    async function showMessage() {
-        const currentMsg = messageArray[0];
-        if (!currentMsg) {
-            hideDialogue();
+    return new Promise((resolve) => {
+        if (currentDialogue) {
+            // Only one dialogue can be shown at a time
+            console.log("Dialogue is already shown");
             return;
         }
 
-        if (speaker.label.name === "Old man" && currentMsg.includes("chi")) {
-            await unlockAbilityShow("Sword Attack", {
-                description: "<kbd>Left/Right</kbd> click to use sword attack, deals 20 damage.",
-                instruction: "<kbd>Left/Right</kbd> click to use sword attack",
-            }, "./src/image/player/player_sword_attack.gif");
-            await unlockAbilityShow("Chi attack", {
-                description: "Press <kbd>F</kbd> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
-                instruction: "Press <kbd>F</kbd> to use Chi attack",
-            }, "./src/image/player/player_chi_attack.gif");
-        }
-
-        const randomIndex = Math.floor(Math.random() * characterStartSpeaking.length);
-        characterStartSpeaking[randomIndex].currentTime = 0;
-        characterStartSpeaking[randomIndex].play();
-
-        let msg = new PIXI.Text(
-            currentMsg,
-            {
-                fontFamily: "Arial",
-                fontSize: 12,
-                fill: "black",
+        const messageArray = message.text.split("\r\n"); // split the message by new lines
+        async function showMessage() {
+            const currentMsg = messageArray[0];
+            if (!currentMsg) {
+                hideDialogue();
+                return;
             }
-        )
-        msg.anchor = 0.5;
-        msg.x = speaker.x;
-        msg.y = speaker.getBounds().minY - 20;
 
-        let speakerName = new PIXI.Text(
-            speaker.label.name,
-            {
-                fontFamily: "Arial",
-                fontSize: 15,
-                fill: "black",
-                fontWeight: "bold",
+            if (speaker.label.name === "Old man" && currentMsg.includes("chi")) {
+                await unlockAbilityShow("Sword Attack", {
+                    description: "<kbd>Left/Right</kbd> click to use sword attack, deals 20 damage.",
+                    instruction: "<kbd>Left/Right</kbd> click to use sword attack",
+                }, "./src/image/player/player_sword_attack.gif");
+                await unlockAbilityShow("Chi attack", {
+                    description: "Press <kbd>F</kbd> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
+                    instruction: "Press <kbd>F</kbd> to use Chi attack",
+                }, "./src/image/player/player_chi_attack.gif");
             }
-        )
-        speakerName.anchor = 0.5;
-        speakerName.x = msg.x - msg.width / 2 + speakerName.width / 2;
-        speakerName.y = msg.y - speakerName.height - message.padding
 
-        let dialogueBg = new PIXI.Graphics();
-        dialogueBg.anchor = (0.5, 0.5);
-        dialogueBg.beginFill('#d69e04');
-        dialogueBg.roundRect(
-            msg.x - msg.width / 2 - message.padding,
-            msg.y - msg.height - speakerName.height - message.padding,
-            msg.width + message.padding * 2,
-            msg.height + speakerName.height * 2 + message.padding * 2,
-            10
-        );
-        dialogueBg.endFill();
+            const randomIndex = Math.floor(Math.random() * characterStartSpeaking.length);
+            characterStartSpeaking[randomIndex].currentTime = 0;
+            characterStartSpeaking[randomIndex].play();
 
-        if (container) {
-            container.addChild(dialogueBg);
-            container.addChild(msg);
-            container.addChild(speakerName);
-        } else {
-            app.stage.addChild(dialogueBg);
-            app.stage.addChild(msg);
-            app.stage.addChild(speakerName);
-        }
+            let msg = new PIXI.Text(
+                currentMsg,
+                {
+                    fontFamily: "Arial",
+                    fontSize: 12,
+                    fill: "black",
+                }
+            )
+            msg.anchor = 0.5;
+            msg.x = speaker.x;
+            msg.y = speaker.getBounds().minY - 20;
 
-        currentDialogue = {
-            dialogueBg: dialogueBg,
-            msg: msg,
-            speakerName: speakerName,
-        }
+            let speakerName = new PIXI.Text(
+                speaker.label.name,
+                {
+                    fontFamily: "Arial",
+                    fontSize: 15,
+                    fill: "black",
+                    fontWeight: "bold",
+                }
+            )
+            speakerName.anchor = 0.5;
+            speakerName.x = msg.x - msg.width / 2 + speakerName.width / 2;
+            speakerName.y = msg.y - speakerName.height - message.padding
 
-        if (messageArray.length > 1) {
-            addDialogueArrow(msg);
-        } else {
-            addCloseButton(msg);
-        }
-    }
+            let dialogueBg = new PIXI.Graphics();
+            dialogueBg.anchor = (0.5, 0.5);
+            dialogueBg.beginFill('#d69e04');
+            dialogueBg.roundRect(
+                msg.x - msg.width / 2 - message.padding,
+                msg.y - msg.height - speakerName.height - message.padding,
+                msg.width + message.padding * 2,
+                msg.height + speakerName.height * 2 + message.padding * 2,
+                10
+            );
+            dialogueBg.endFill();
 
-    // Nested functions
-    function addDialogueArrow(msg) {
-        let nextDialogueArrow;
-        nextDialogueArrow = new PIXI.Text(
-            "->",
-            {
-                fontSize: 18,
-                fontFamily: "Arcade",
-                fill: "black",
+            if (container) {
+                container.addChild(dialogueBg);
+                container.addChild(msg);
+                container.addChild(speakerName);
+            } else {
+                app.stage.addChild(dialogueBg);
+                app.stage.addChild(msg);
+                app.stage.addChild(speakerName);
             }
-        );
-        nextDialogueArrow.anchor = 0.5;
-        nextDialogueArrow.x = msg.x + msg.width / 2 - message.padding * 2;
-        nextDialogueArrow.y = msg.y - msg.height - message.padding * 2;
 
-        nextDialogueArrow.interactive = true;
-        nextDialogueArrow.buttonMode = true;
-        nextDialogueArrow.on("mouseover", () => {
-            nextDialogueArrow.style.fill = "gray";
-        })
-        nextDialogueArrow.on("mouseout", () => {
-            nextDialogueArrow.style.fill = "black";
-        })
-        nextDialogueArrow.on("click", () => {
-            hideCurrentMessage();
-            messageArray.shift();
-            showMessage();
-        })
-
-        if (container) {
-            container.addChild(nextDialogueArrow);
-        } else {
-            app.stage.addChild(nextDialogueArrow);
-        }
-
-        currentDialogue["arrow"] = nextDialogueArrow;
-    }
-
-    function addCloseButton(msg = currentDialogue.msg) {
-        let closeDialogueX;
-        closeDialogueX = new PIXI.Text(
-            "X",
-            {
-                fontSize: 18,
-                fontFamily: "Arcade",
-                fill: "black",
+            currentDialogue = {
+                dialogueBg: dialogueBg,
+                msg: msg,
+                speakerName: speakerName,
             }
-        )
-        closeDialogueX.anchor = 0.5;
-        closeDialogueX.x = msg.x + msg.width / 2 - message.padding * 2;
-        closeDialogueX.y = msg.y - msg.height - message.padding * 2;
-        currentDialogue["closeDialogueX"] = closeDialogueX;
 
-        closeDialogueX.interactive = true;
-        closeDialogueX.buttonMode = true;
-        closeDialogueX.on("mouseover", () => {
-            closeDialogueX.style.fill = "gray";
-        })
-        closeDialogueX.on("mouseout", () => {
-            closeDialogueX.style.fill = "black";
-        })
-        closeDialogueX.on("click", () => {
-            hideDialogue();
-        })
-
-        if (container) {
-            container.addChild(closeDialogueX);
-        } else {
-            app.stage.addChild(closeDialogueX);
-        }
-    }
-
-    function hideCurrentMessage() {
-        app.stage.removeChild(currentDialogue.speakerName);
-        app.stage.removeChild(currentDialogue.msg);
-        app.stage.removeChild(currentDialogue.dialogueBg);
-        if (currentDialogue.arrow) {
-            app.stage.removeChild(currentDialogue.arrow);
-            currentDialogue.arrow.destroy();
+            if (messageArray.length > 1) {
+                addDialogueArrow(msg);
+                if (!dialogueReminderAlready) {
+                    document.getElementById("dialogueReminder").classList.add("dialogue-reminder-show");
+                    dialogueReminderAlready = true;
+                }
+            } else {
+                addCloseButton(msg);
+            }
         }
 
-        currentDialogue.speakerName.destroy();
-        currentDialogue.msg.destroy();
-        currentDialogue.dialogueBg.destroy();
-    }
+        // Nested functions
+        function addDialogueArrow(msg) {
+            let nextDialogueArrow;
+            nextDialogueArrow = new PIXI.Text(
+                "->",
+                {
+                    fontSize: 18,
+                    fontFamily: "Arcade",
+                    fill: "black",
+                }
+            );
+            nextDialogueArrow.anchor = 0.5;
+            nextDialogueArrow.x = msg.x + msg.width / 2 - message.padding * 2;
+            nextDialogueArrow.y = msg.y - msg.height - message.padding * 2;
 
-    showMessage();
+            nextDialogueArrow.interactive = true;
+            nextDialogueArrow.buttonMode = true;
+            nextDialogueArrow.on("mouseover", () => {
+                nextDialogueArrow.style.fill = "gray";
+            })
+            nextDialogueArrow.on("mouseout", () => {
+                nextDialogueArrow.style.fill = "black";
+            })
+            nextDialogueArrow.on("click", () => {
+                hideCurrentMessage();
+                messageArray.shift();
+                showMessage();
+            })
+            document.addEventListener("keydown", function detectEnter(e) {
+                if (e.key === "Enter") {
+                    hideCurrentMessage();
+                    messageArray.shift();
+                    showMessage();
+                    document.removeEventListener("keydown", detectEnter);
+                }
+            });
+
+            if (container) {
+                container.addChild(nextDialogueArrow);
+            } else {
+                app.stage.addChild(nextDialogueArrow);
+            }
+
+            currentDialogue["arrow"] = nextDialogueArrow;
+        }
+
+        function addCloseButton(msg = currentDialogue.msg) {
+            let closeDialogueX;
+            closeDialogueX = new PIXI.Text(
+                "X",
+                {
+                    fontSize: 18,
+                    fontFamily: "Arcade",
+                    fill: "black",
+                }
+            )
+            closeDialogueX.anchor = 0.5;
+            closeDialogueX.x = msg.x + msg.width / 2 - message.padding * 2;
+            closeDialogueX.y = msg.y - msg.height - message.padding * 2;
+            currentDialogue["closeDialogueX"] = closeDialogueX;
+
+            closeDialogueX.interactive = true;
+            closeDialogueX.buttonMode = true;
+            closeDialogueX.on("mouseover", () => {
+                closeDialogueX.style.fill = "gray";
+            })
+            closeDialogueX.on("mouseout", () => {
+                closeDialogueX.style.fill = "black";
+            })
+            closeDialogueX.on("click", () => {
+                resolve();
+                hideDialogue();
+            })
+            document.addEventListener("keydown", function detectEnter(e) {
+                if (e.key === "Enter") {
+                    resolve();
+                    hideDialogue();
+                    document.removeEventListener("keydown", detectEnter);
+                }
+            });
+
+            if (container) {
+                container.addChild(closeDialogueX);
+            } else {
+                app.stage.addChild(closeDialogueX);
+            }
+        }
+
+        function hideCurrentMessage() {
+            app.stage.removeChild(currentDialogue.speakerName);
+            app.stage.removeChild(currentDialogue.msg);
+            app.stage.removeChild(currentDialogue.dialogueBg);
+            if (currentDialogue.arrow) {
+                app.stage.removeChild(currentDialogue.arrow);
+                currentDialogue.arrow.destroy();
+            }
+
+            currentDialogue.speakerName.destroy();
+            currentDialogue.msg.destroy();
+            currentDialogue.dialogueBg.destroy();
+        }
+
+        showMessage();
+    });
 }
 
 function hideDialogue() {
     if (!currentDialogue) {
         console.log("No dialogue to hide");
         return;
+    }
+
+    try {
+        document.getElementById("dialogueReminder").classList.remove("dialogue-reminder-show");
+    }
+    catch (err) {
+
     }
 
     app.stage.removeChild(currentDialogue.dialogueBg);
@@ -1574,6 +1605,12 @@ function createStrikePigTexure() {
         new PIXI.Texture(strikingPigFaceRight, new PIXI.Rectangle(0, 0, monstersInfo.strikePig.size.width, monstersInfo.strikePig.size.height)),
         new PIXI.Texture(strikePigWalkRight1, new PIXI.Rectangle(0, 0, monstersInfo.strikePig.size.width, monstersInfo.strikePig.size.height)),
         new PIXI.Texture(strikePigWalkRight2, new PIXI.Rectangle(0, 0, monstersInfo.strikePig.size.width, monstersInfo.strikePig.size.height)),
+    ]
+    monstersInfo.strikePig.texture['damagedFaceLeft'] = [
+        new PIXI.Texture(strikingPigFaceRight, new PIXI.Rectangle(0, 0, monstersInfo.strikePig.size.width, monstersInfo.strikePig.size.height)),
+    ]
+    monstersInfo.strikePig.texture['damagedFaceRight'] = [
+        new PIXI.Texture(strikingPigFaceRight, new PIXI.Rectangle(0, 0, monstersInfo.strikePig.size.width, monstersInfo.strikePig.size.height)),
     ]
     monstersInfo.strikePig.texture['died'] = [
         new PIXI.Texture(strikePigDied, new PIXI.Rectangle(0, 0, monstersInfo.strikePig.size.width, monstersInfo.strikePig.size.height)),
@@ -1639,9 +1676,14 @@ function updateCanvas(direction, amount = charactersInfo.player.speed, mode = "n
     if ((currentBackgroundPosition.maxX - gameWidth / 2) < player.x) {
         playerIsNearRightBorder = true;
     }
+    if ((!playerIsNearLeftBorder && !playerIsNearRightBorder) || mode === 'teleport') {
+        if (direction === "left") {
+            canvasOffsetDistance -= amount;
+        } else if (direction === "right") {
+            canvasOffsetDistance += amount;
+        }
 
-    app.stage.children.forEach((child) => {
-        if ((!playerIsNearLeftBorder && !playerIsNearRightBorder) || mode === 'teleport') {
+        app.stage.children.forEach((child) => {
             if (direction === "left") {
                 // Player is moving right, background is moving left
                 if (child.label != "healthBar" && child.label != "energyBar") {
@@ -1653,8 +1695,8 @@ function updateCanvas(direction, amount = charactersInfo.player.speed, mode = "n
                     child.x += amount;
                 }
             }
-        }
-    });
+        });
+    }
 }
 
 function canvasFadeOut(duration) {
@@ -1668,9 +1710,17 @@ function canvasFadeOut(duration) {
         coverBackground.zIndex = 100;
         app.stage.addChild(coverBackground);
 
+        playerTeleportSound.currentTime = 0;
+        playerTeleportSound.play();
+
+        const audio = currentPlayingAudio();
+        console.log(audio);
+        if (audio) {
+            audioFadeOut(audio, duration);
+        }
+
         for (let i = 0; i <= 1; i += 0.01) {
             setTimeout(() => {
-                console.log(i);
                 coverBackground.alpha = i;
             }, i * duration);
         }
@@ -1683,12 +1733,51 @@ function canvasFadeIn(duration) {
     return (new Promise((resolve) => {
         for (let i = 1; i >= 0; i -= 0.01) {
             setTimeout(() => {
-                console.log(i);
                 coverBackground.alpha = i;
             }, (1 - i) * duration);
         }
         setTimeout(resolve, duration);
+
+        const audio = currentPlayingAudio();
+        if (audio) {
+            audioFadeIn(audio, duration);
+        }
     }))
+}
+
+function audioFadeOut(audio, duration) {
+    // Fade out the audio when the player dies
+    return new Promise((resolve) => {
+        for (let i = 1; i >= 0; i -= 0.01) {
+            setTimeout(() => {
+                audio.volume = i;
+            }, (1 - i) * duration);
+        }
+        setTimeout(resolve, duration);
+    })
+}
+
+function audioFadeIn(audio, duration) {
+    // Fade in the audio when the player respawns
+    return new Promise((resolve) => {
+        for (let i = 0; i <= 1; i += 0.01) {
+            setTimeout(() => {
+                audio.volume = i;
+            }, i * duration);
+        }
+        setTimeout(resolve, duration);
+    })
+}
+
+function currentPlayingAudio() {
+    // Return the audio that is currently playing
+    audios.forEach((audio) => {
+        if (!audio.paused) {
+            return audio;
+        }
+    });
+
+    return false;
 }
 
 function generateRandomCoords(min, max) {
@@ -1737,7 +1826,8 @@ function monsterFollowPlayer(monster) {
         return;
     }
 
-    if (distanceBetween(player, monster) > monster.label.range) { // if the player is out of the range of the monster
+    if ((distanceBetween(player, monster) + canvasOffsetDistance) > monster.label.range) {
+        // if the player is out of the range of the monster
         if (monster.textures === monster.label.texture.walkRight || monster.textures === monster.label.texture.faceRight) {
             monster.textures = monster.label.texture.faceRight;
         } else if (monster.textures === monster.label.texture.walkLeft || monster.textures === monster.label.texture.faceLeft) {
@@ -1754,7 +1844,13 @@ function monsterFollowPlayer(monster) {
         return;
     }
 
-    if (monster.x > player.x + monster.label.range * 0.25) {
+    let monsterLocation = monster.x;
+    if (allowPlayerMoveOutOfScreen) {
+        monsterLocation += canvasOffsetDistance;
+    }
+
+    if (monsterLocation > (player.x + monster.label.range * 0.25)) {
+        console.log(canvasOffsetDistance);
         if (!monster.playing || monster.textures !== monster.label.texture.walkLeft) {
             // Change the texture of the monster to walk left
             if (!monster.label.isDamaged) {
@@ -1784,7 +1880,7 @@ function monsterFollowPlayer(monster) {
             }
             child.x -= monster.label.speed;
         });
-    } else if (monster.x < player.x - monster.label.range * 0.25) {
+    } else if (monsterLocation < (player.x - monster.label.range * 0.25)) {
         if (!monster.playing || monster.textures !== monster.label.texture.walkRight) {
             // Change the texture of the monster to walk right
             if (!monster.label.isDamaged) {
@@ -1852,47 +1948,45 @@ function moveExlcamationMark(monster) {
 let strikePigStrikeInProgress = false;
 let strikeDirection = "";
 function strikePigAttack() {
-    if (!strikePig.label.alive) {
+    if (!strikePig.label.alive || !player.label.alive) {
         return;
     }
 
     console.log("Strike pig is attacking");
     strikePig.label.isAttacking = true;
-    strikePigSmoke.visible = true;
-    strikePigSmoke.y = strikePig.y + 35;
-    strikePig.loop = true;
-    strikePigStrike.y = strikePig.y;
-    if (strikePig.textures === monstersInfo.strikePig.texture.walkRight) {
-        strikePigStrike.texture = strikeWaveFaceRight;
-        strikePigSmoke.texture = smokeFaceRight;
-        strikePigSmoke.x = strikePig.x - 75;
-        strikePigStrike.x = strikePig.x + 75;
-        strikeDirection = "right";
-    }
-    else if (strikePig.textures === monstersInfo.strikePig.texture.walkLeft) {
-        strikePigStrike.texture = strikeWaveFaceLeft;
-        strikePigSmoke.texture = smokeFaceLeft;
-        strikePigSmoke.x = strikePig.x + 75;
-        strikePigStrike.x = strikePig.x - 75;
-        strikeDirection = "left";
-    }
 
+    let strikePigCoords = strikePig.x;
+    if (allowPlayerMoveOutOfScreen) {
+        strikePigCoords += canvasOffsetDistance;
+    }
+    strikePig.label['originalLocation'] = strikePigCoords;
+
+    strikePigSmoke.visible = true;
+    if (strikePigCoords > player.x) {
+        strikePigSmoke.x = strikePig.x + 100;
+        strikePigSmoke.texture = smokeFaceLeft;
+        if (allowPlayerMoveOutOfScreen) {
+            strikePigSmoke.x += canvasOffsetDistance;
+        }
+        strikePig.label['strikeDirection'] = "left";
+        strikePig.textures = monstersInfo.strikePig.texture.walkLeft;
+    } else if (strikePigCoords < player.x) {
+        strikePigSmoke.x = strikePig.x - 100;
+        strikePigSmoke.texture = smokeFaceRight;
+        if (allowPlayerMoveOutOfScreen) {
+            strikePigSmoke.x += canvasOffsetDistance;
+        }
+        strikePig.label['strikeDirection'] = "right";
+        strikePig.textures = monstersInfo.strikePig.texture.walkRight;
+    }
+    strikePigSmoke.y = strikePig.y + 25;
+    strikePig.loop = true;
     strikePig.animationSpeed = monstersInfo.strikePig.animationSpeed * 2;
     strikePig.play();
-    const strikePigStrikeInterval = setTimeout(function () {
-        strikePigStrike.visible = true;
-        strikePigStrikeInProgress = true;
-    }, 1500);
 
-    const strikePigNotStrikeInterval = setTimeout(function () {
-        strikePigStrike.visible = false;
-        strikePigSmoke.visible = false;
-        strikePigStrikeInProgress = false;
-        strikePig.label.isAttacking = false;
-        strikePig.animationSpeed = monstersInfo.strikePig.animationSpeed;
-    }, 2000); // change the delay time to adjust the strike distance
-    intervalsAndTimeouts.push(strikePigStrikeInterval);
-    intervalsAndTimeouts.push(strikePigNotStrikeInterval);
+    setTimeout(() => {
+        strikePig.label['isStriking'] = true;
+    }, 1500);
 }
 
 function createLittleBug() {
@@ -1904,17 +1998,23 @@ function createLittleBug() {
     const littleBugCoor = generateRandomCoords({ x: 50, y: monstersInfo.littleBug.floorY }, { x: app.screen.width + 50, y: 50 });
     monstersInfo.littleBug.location.x = littleBugCoor.x;
     monstersInfo.littleBug.location.y = littleBugCoor.y;
-    littleBug = createMonster(monstersInfo.littleBug, './src/image/monsters/bug_boss/little_bug_walk_right_1.png', true, true, {
-        texture: monstersInfo.littleBug.texture.faceRight,
-        animationSpeed: monstersInfo.littleBug.animationSpeed,
-        loop: true,
-        autoPlay: false,
-    }).monster;
+    littleBug = createMonster(
+        monstersInfo.littleBug,
+        './src/image/monsters/bug_boss/little_bug_walk_right_1.png',
+        false,
+        true,
+        {
+            texture: monstersInfo.littleBug.texture.faceRight,
+            animationSpeed: monstersInfo.littleBug.animationSpeed,
+            loop: true,
+            autoPlay: false,
+        }
+    ).monster;
     monsters.push(littleBug);
 }
 
-function bugBossAttack(element = bugBoss) {
-    if (!bugBoss.label.alive || bugBoss.label.isAttacking || !charactersInfo.player.alive) {
+function bugBossAttack() {
+    if (!bugBoss.label.alive || bugBoss.label.isAttacking || !charactersInfo.player.alive || playerBiome != "bugBoss") {
         return;
     }
 
@@ -2277,22 +2377,23 @@ async function gameLoop(delta = 1) {
     catch (err) {
         console.log("Error:", err);
     }
-    // Check if the player is attacking the monsters
+
+    // Check if the player is attacked by the monsters
     for (const attack of monstersAttack) {
         if (checkCollision(player, attack) === "right" || checkCollision(player, attack) === "left") {
             const attacker = monsters.find(monster => monster.label.name === attack.label.from);
             if (attacker.label.alive) {
                 elementDamaged(player, attack.label.damage);
+                console.log("Player is attacked by " + attack.label.from);
             }
         }
     }
 
-    // Check if the monsters are attacking the player
+    // Check if the player is attacking the monsters
     for (const playerAttack of playerAttacks) {
         for (const monster of monsters) {
             if ((checkCollision(playerAttack, monster) === 'left' || checkCollision(playerAttack, monster) === 'right') && monster.label.alive) {
                 elementDamaged(monster, playerAttack.label.damage);
-                // if (!monster.label.)
             }
         }
     }
@@ -2414,23 +2515,35 @@ async function gameLoop(delta = 1) {
     }
 
     // Check if the strike pig is attacking
-    if (strikePigStrikeInProgress && strikePig.label.alive) {
-        if (strikeDirection === "right") {
-            strikePig.label.container.children.forEach((child) => {
-                if (child.label.name === "exclamationMark") {
-                    child.visible = false;
-                } else {
-                    child.x += monstersInfo.strikePig.speed * 5;
-                }
-            });
-        } else if (strikeDirection === "left") {
-            strikePig.label.container.children.forEach((child) => {
-                if (child.label.name === "exclamationMark") {
-                    child.visible = false;
-                } else {
-                    child.x -= monstersInfo.strikePig.speed * 5;
-                }
-            });
+    if (strikePig.label.isStriking && strikePig.label.alive && player.label.alive) {
+        let strikePigCoords = strikePig.x;
+        if (allowPlayerMoveOutOfScreen) {
+            strikePigCoords += canvasOffsetDistance;
+        }
+
+        if (Math.abs(strikePigCoords - strikePig.label.originalLocation) < strikePig.label.range * 1.5) {
+            strikePigStrike.visible = true;
+            strikePigStrike.y = strikePig.y;
+            if (strikePig.label.strikeDirection === "right" && !strikePig.label.isBlocked.right) {
+                strikePigStrike.texture = strikeWaveFaceRight;
+                strikePigStrike.x = strikePigCoords + 100;
+                strikePig.label.container.children.forEach((child) => {
+                    child.x += strikePig.label.speed * 5;
+                });
+            } else if (strikePig.label.strikeDirection === "left" && !strikePig.label.isBlocked.left) {
+                strikePigStrike.texture = strikeWaveFaceLeft;
+                strikePigStrike.x = strikePigCoords - 100;
+                strikePig.label.container.children.forEach((child) => {
+                    child.x -= strikePig.label.speed * 5;
+                });
+            }
+        } else {
+            strikePig.animationSpeed = monstersInfo.strikePig.animationSpeed;
+            strikePig.loop = false;
+            strikePig.label.isStriking = false;
+            strikePig.label.isAttacking = false;
+            strikePigSmoke.visible = false;
+            strikePigStrike.visible = false;
         }
     }
 
@@ -2451,6 +2564,7 @@ async function gameLoop(delta = 1) {
         }
     }
 
+    // Continuesly update the background border coordinates
     switch (playerBiome) {
         case "forest":
             allowPlayerMoveOutOfScreen = true;
@@ -2461,30 +2575,26 @@ async function gameLoop(delta = 1) {
                     currentBackgroundPosition.maxX = background.getBounds().maxX;
                 }
             }
-
-            // The old man will move up and down
-            if (oldMan.y <= app.screen.height / 2 + gameHeight * 0.3 && oldMan.label.movingDirection === "down") {
-                oldManContainer.children.forEach((child) => {
-                    child.y += 1;
-                });
-                oldMan.label.movingDirection = "down";
-            } else {
-                oldMan.label.movingDirection = "up";
-            }
-
-            if (oldMan.y >= app.screen.height / 2 + gameHeight * 0.1 && oldMan.label.movingDirection === "up") {
-                oldManContainer.children.forEach((child) => {
-                    child.y -= 1;
-                });
-                oldMan.label.movingDirection = "up";
-            } else {
-                oldMan.label.movingDirection = "down";
-            }
             break;
+    }
 
-        // case "dungeon":
-        //     allowPlayerMoveOutOfScreen = false;
-        //     break;
+    // The old man will move up and down
+    if (oldMan.y <= app.screen.height / 2 + gameHeight * 0.3 && oldMan.label.movingDirection === "down") {
+        oldManContainer.children.forEach((child) => {
+            child.y += 1;
+        });
+        oldMan.label.movingDirection = "down";
+    } else {
+        oldMan.label.movingDirection = "up";
+    }
+
+    if (oldMan.y >= app.screen.height / 2 + gameHeight * 0.1 && oldMan.label.movingDirection === "up") {
+        oldManContainer.children.forEach((child) => {
+            child.y -= 1;
+        });
+        oldMan.label.movingDirection = "up";
+    } else {
+        oldMan.label.movingDirection = "down";
     }
 
     // Check key press

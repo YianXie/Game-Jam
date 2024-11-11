@@ -259,6 +259,36 @@ canvas {
     color: rgba(255, 255, 255, 0.8);
 }
 
+.dialogue-reminder {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translate(-50%, -50%);
+    width: fit-content;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid;
+    border-radius: 10px;
+    padding: 5px;
+    background: rgba(183, 183, 183, 0.8);
+    visibility: hidden;
+    opacity: 0;
+    transition: all 0.5s;
+}
+
+.dialogue-reminder-show {
+    visibility: visible;
+    opacity: 1;
+    top: 10%;
+}
+
+.dialogue-reminder i {
+    font-size: 20px;
+    margin-right: 5px;
+}
+
 /* Acticated the font */
 #arcadeFont {
     font-family: 'Arcade';
