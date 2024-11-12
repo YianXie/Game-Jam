@@ -5,6 +5,7 @@ globalThis.__PIXI_APP__ = app;
 
 const gameWidth = Math.round(window.innerWidth * 0.8);
 const gameHeight = Math.round(window.innerHeight * 0.75);
+
 const diagonalLength = Math.round(Math.sqrt(gameWidth * gameWidth + gameHeight * gameHeight));
 console.log("Width:", gameWidth, "\r\nHeight:", gameHeight, "\r\nDiagonal:", diagonalLength);
 await app.init(
@@ -63,6 +64,7 @@ const cg = await PIXI.Assets.load('./src/image/background/cg.png');
 const bugBossBackground = await PIXI.Assets.load('./src/image/background/bug_boss.png');
 const forestBackground = await PIXI.Assets.load('./src/image/background/forest.png');
 const dungeonBackground = await PIXI.Assets.load('./src/image/background/dungeon.png');
+const finalBossBackground = await PIXI.Assets.load('./src/image/background/final_boss.png');
 
 // Load the player image
 const playerFaceRight = await PIXI.Assets.load('./src/image/player/player_face_right.png');
@@ -76,6 +78,10 @@ const playerDamagedFaceLeft = await PIXI.Assets.load('./src/image/player/player_
 
 const oldManFaceRight = await PIXI.Assets.load('./src/image/characters/old_man_face_right.png');
 const oldManFaceLeft = await PIXI.Assets.load('./src/image/characters/old_man_face_left.png');
+
+const horseFaceLeft = await PIXI.Assets.load('./src/image/horse/horse_walk_left_1.png');
+const horseWalkLeft1 = await PIXI.Assets.load('./src/image/horse/horse_walk_left_1.png');
+const horseWalkLeft2 = await PIXI.Assets.load('./src/image/horse/horse_walk_left_2.png');
 
 // Load the monster image
 const strikeWaveFaceRight = await PIXI.Assets.load('./src/image/monsters/strike_pig/strike_face_right.png');
@@ -177,6 +183,7 @@ startButtonText.anchor.set(0.5);
 startButtonText.x = app.screen.width / 2;
 startButtonText.y = app.screen.height / 2;
 startButtonText.interactive = true;
+startButtonText.cursor = 'pointer';
 
 startButton.lineStyle(2, 0x000000, 1);
 startButton.beginFill(nonHoverColor);
@@ -187,6 +194,7 @@ startButton.x = app.screen.width / 2 - 50;
 startButton.y = app.screen.height / 2 - 25;
 startButton.interactive = true;
 startButton.buttonMode = true;
+startButton.cursor = 'pointer';
 
 startButtonText.on('pointerover', () => {
     startButton.clear();
@@ -241,8 +249,8 @@ const charactersInfo = {
             y: app.screen.height / 2,
         },
         status: {
-            health: 250,
-            maxHealth: 250,
+            health: 2500,
+            maxHealth: 2500,
             energy: 3,
             maxEnergy: 3,
             shield: false,
@@ -510,8 +518,8 @@ const monstersInfo = {
         name: "finalBoss",
         alive: true,
         location: {
-            x: app.screen.width * 2,
-            y: app.screen.height / 2,
+            x: -app.screen.width * 1.5,
+            y: app.screen.height / 10,
         },
         size: {
             width: diagonalLength * 0.25,
@@ -600,6 +608,19 @@ const monstersInfo = {
         this.littleBug.isAttacking = false;
         this.littleBug.inDamageCooldown = false;
         this.littleBug.inAttackingCooldown = false;
+
+        this.finalBossBody.status.health = this.finalBossBody.status.maxHealth;
+        this.finalBossBody.alive = true;
+        this.finalBossBody.location.x = -app.screen.width * 1.5;
+        this.finalBossBody.location.y = app.screen.height / 10;
+        this.finalBossBody.speedY = 0;
+        this.finalBossBody.isJumping = false;
+        this.finalBossBody.isBlocked.left = false;
+        this.finalBossBody.isBlocked.right = false;
+        this.finalBossBody.texture = {};
+        this.finalBossBody.isChasing = false;
+        this.finalBossBody.isAttacking = false;
+        this.finalBossBody.inDamageCooldown = false;
     },
 }
 const supportingObjectsInfo = {
@@ -790,7 +811,7 @@ const symbolsInfo = {
 // array for storing the elements
 let supportingObjects = [];
 let characters = [];
-let monstersAttack = [];
+let monsterAttacks = [];
 let playerAttacks = [];
 let monsters = [];
 let backgrounds = [];
@@ -841,27 +862,29 @@ async function init() {
         app.stage.children.forEach((child) => {
             child.destroy();
             app.stage.removeChild(child);
+            child = null;
         });
         app.ticker.remove(gameLoop);
     }
     catch (err) {
         console.log(err);
     }
-    app.renderer.background.color = 'black'; // change the background color to black
+    app.renderer.background.color = 'transparent'; // change the background color to black
 
     // Reset the entities and arrays
-    gameIsRunning = true;
     charactersInfo.reset();
     monstersInfo.reset();
+    gameIsRunning = true;
     characters.length = 0;
     monsters.length = 0;
     playerAttacks.length = 0;
-    monstersAttack.length = 0;
+    monsterAttacks.length = 0;
     supportingObjects.length = 0;
 
     playerIsRegenrating = false;
     playerBiome = 'bugBoss';
     canvasOffsetDistance = 0;
+    hideDialogue();
     for (let i = 0; i < intervalsAndTimeouts.length; i++) {
         clearInterval(intervalsAndTimeouts[i]);
         intervalsAndTimeouts[i] = undefined;
@@ -904,6 +927,7 @@ async function init() {
         app.stage.addChild(forestBackground);
         backgrounds.push(forestBackground);
     }
+
     let dungeonBackground = PIXI.Sprite.from('./src/image/background/dungeon.png');
     dungeonBackground.anchor = 0.5;
     dungeonBackground.x = gameWidth * (-0.5);
@@ -913,6 +937,16 @@ async function init() {
     dungeonBackground.label = "dungeon";
     app.stage.addChild(dungeonBackground);
     backgrounds.push(dungeonBackground);
+
+    let finalBossBackground = PIXI.Sprite.from('./src/image/background/final_boss.png');
+    finalBossBackground.anchor = 0.5;
+    finalBossBackground.x = gameWidth * (-1.5);
+    finalBossBackground.y = gameHeight / 2;
+    finalBossBackground.width = gameWidth;
+    finalBossBackground.height = gameHeight;
+    finalBossBackground.label = "finalBoss";
+    app.stage.addChild(finalBossBackground);
+    backgrounds.push(finalBossBackground);
 
     // Set up the entities
     // The order matters, the last element will be on top of the previous elements (图层顺序)
@@ -952,7 +986,7 @@ async function init() {
     monsters.push(strikePig);
 
     strikePigStrike = createElement(false, strikePigStrike, attacksInfo.strike.size, attacksInfo.strike.location, 0.5, false, './src/image/monsters/strike_pig/strike_face_right.png', attacksInfo.strike);
-    monstersAttack.push(strikePigStrike);
+    monsterAttacks.push(strikePigStrike);
     strikePig.label.container.addChild(strikePigStrike);
 
     strikePigSmoke = createElement(false, strikePigSmoke, symbolsInfo.smoke.size, symbolsInfo.smoke.location, 0.5, false, './src/image/monsters/smoke_face_right.png', symbolsInfo.smoke);
@@ -961,10 +995,10 @@ async function init() {
     createBugBossTexture();
     createLittleBugTexture();
     bugBoss = createMonster(
-        monstersInfo.bugBoss, 
-        './src/image/monsters/bug_boss/bug_boss_face_left.png', 
-        true, 
-        true, 
+        monstersInfo.bugBoss,
+        './src/image/monsters/bug_boss/bug_boss_face_left.png',
+        true,
+        true,
         {
             texture: monstersInfo.bugBoss.texture.faceLeft,
             animationSpeed: monstersInfo.bugBoss.animationSpeed,
@@ -975,7 +1009,7 @@ async function init() {
     monsters.push(bugBoss);
 
     bugBossStrike = createElement(false, bugBossStrike, attacksInfo.bugBossStrike.size, attacksInfo.bugBossStrike.location, 0.5, false, './src/image/monsters/bug_boss/bug_boss_strike_face_left.png', attacksInfo.bugBossStrike);
-    monstersAttack.push(bugBossStrike);
+    monsterAttacks.push(bugBossStrike);
 
     bugBossSeat = createElement(false, bugBossSeat, supportingObjectsInfo.bugBossSeat.size, supportingObjectsInfo.bugBossSeat.location, 0.5, true, './src/image/others/bug_boss_seat.png', supportingObjectsInfo.bugBossSeat);
     supportingObjects.push(bugBossSeat);
@@ -987,7 +1021,7 @@ async function init() {
     supportingObjects.push(buddaStatus);
 
     finalBossLeftSword = createElement(
-        false, 
+        false,
         finalBossLeftSword,
         attacksInfo.finalBossSword.size,
         attacksInfo.finalBossSword.location,
@@ -997,10 +1031,11 @@ async function init() {
         attacksInfo.finalBossSword
     )
     finalBossLeftSword.rotation = symbolsInfo.finalBossArms.originalRotation;
-    monstersAttack.push(finalBossLeftSword);
+    setUpSprite(finalBossLeftSword);
+    monsterAttacks.push(finalBossLeftSword);
 
     finalBossRightSword = createElement(
-        false, 
+        false,
         finalBossRightSword,
         attacksInfo.finalBossSword.size,
         {
@@ -1013,10 +1048,11 @@ async function init() {
         attacksInfo.finalBossSword
     )
     finalBossRightSword.rotation = -symbolsInfo.finalBossArms.originalRotation;
-    monstersAttack.push(finalBossLeftSword);
+    setUpSprite(finalBossRightSword);
+    monsterAttacks.push(finalBossLeftSword);
 
     finalBossLeftArm = createElement(
-        false, 
+        false,
         finalBossLeftArm,
         symbolsInfo.finalBossArms.size,
         symbolsInfo.finalBossArms.location,
@@ -1025,10 +1061,11 @@ async function init() {
         './src/image/monsters/final_boss/final_boss_arm.png',
         symbolsInfo.finalBossArms
     )
+    finalBossLeftArm.anchor.set(0.5, 0);
     finalBossLeftArm.rotation = symbolsInfo.finalBossArms.originalRotation;
 
     finalBossRightArm = createElement(
-        false, 
+        false,
         finalBossRightArm,
         symbolsInfo.finalBossArms.size,
         {
@@ -1040,6 +1077,7 @@ async function init() {
         './src/image/monsters/final_boss/final_boss_arm.png',
         symbolsInfo.finalBossArms
     )
+    finalBossRightArm.anchor.set(0.5, 0);
     finalBossRightArm.rotation = -symbolsInfo.finalBossArms.originalRotation;
 
     finalBossBody = createMonster(
@@ -1087,7 +1125,7 @@ async function init() {
     energyText.label = "energyBar";
     app.stage.addChild(energyText);
 
-    // Teleport the player to the forest when the player dies
+    // Teleport the player to the forest
     if (playerBiome === "bugBoss" && !unlockedAbilities.includes("Chi") && playerDeathNum >= 1 && !biomePlayerHasVisited.includes("forest")) {
         await canvasFadeOut(2000);
         canvasFadeIn(2000);
@@ -1097,6 +1135,50 @@ async function init() {
         canvasFadeIn(2000);
         transitionToForest();
     }
+}
+
+async function getPixelsData(sprite) {
+    const renderTexture = PIXI.RenderTexture.create(sprite.width, sprite.height);
+    app.renderer.render(sprite, renderTexture);
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = sprite.width;
+    canvas.height = sprite.height;
+    const ctx = canvas.getContext('2d');
+
+    ctx.drawImage(
+        app.renderer.extract.canvas(renderTexture),
+        0,
+        0
+    );
+
+    return ctx.getImageData(0, 0, sprite.width, sprite.height).data;
+}
+
+function createCustomHitarea(sprite, data) {
+    sprite.containsPoint = (point) => {
+        const localX = Math.round(point.x - sprite.x);
+        const localY = Math.round(point.y - sprite.y);
+
+        if (localX < 0 || localX >= sprite.width || localY < 0 || localY >= sprite.height) {
+            return false;
+        }
+
+        const index = (localY * sprite.width + localX) * 4;
+        const alpha = data[index + 3];
+
+        return alpha > 0;
+    }
+}
+
+function setUpSprite(sprite) {
+    sprite.interactive = true;
+
+    // Wait for the texture to load before setting up the hit area
+    sprite.texture.baseTexture.on('loaded', async () => {
+        const data = await getPixelsData(sprite);
+        createCustomHitarea(sprite, data);
+    });
 }
 
 document.getElementById("openInstruction").addEventListener('click', (event) => {
@@ -1158,6 +1240,32 @@ async function transitionToDungeon() {
     transitionToForest();
     canvasFadeIn(2000);
     biomePlayerHasVisited.push("dungeon");
+}
+
+async function transitionToFinalBoss() {
+    updateMinFloorHeight(gameHeight * 5.5 / 7);
+    allowPlayerMoveOutOfScreen = false;
+
+    player.x = -app.screen.width * 1.5;
+    playerBiome = "finalBoss";
+    updateCanvas("right", app.screen.width * 2, "teleport");
+}
+
+function updateMinFloorHeight(value) {
+    minFloorHeight = value;
+    player.y = minFloorHeight - player.height / 2;
+    player.label.floorY = minFloorHeight - player.height / 2;
+    monsters.forEach((monster) => {
+        try {
+            monster.label.container.children.forEach((child) => {
+                child.y = minFloorHeight - child.height / 2;
+            });
+        }
+        catch (err) {
+            monster.y = minFloorHeight - monster.height / 2;
+        }
+        monster.label.floorY = minFloorHeight - monster.height / 2;
+    });
 }
 
 function showBackground(blurLevel) {
@@ -1846,7 +1954,6 @@ function canvasFadeOut(duration) {
         playerTeleportSound.play();
 
         const audio = currentPlayingAudio();
-        console.log(audio);
         if (audio) {
             audioFadeOut(audio, duration);
         }
@@ -2042,7 +2149,7 @@ function monsterFollowPlayer(monster) {
         });
     } else {
         // If the monster is close to the player, stop moving and attack
-        if (!monster.label.isAttacking) {
+        if (!monster.label.isAttacking || (monster.label.status.health < monster.label.status.maxHealth && !monster.label.isAttacking)) {
             monster.label.attack(monster);
             monster.label.container.children.forEach((child) => {
                 if (child.label.name === "exclamationMark") {
@@ -2169,17 +2276,18 @@ function bugBossAttack() {
 }
 
 function littleBugAttack(element) {
-    if (!bugBoss.label.alive) {
+    if (!bugBoss.label.alive || !element.label.alive || element.label.isAttacking || !charactersInfo.player.alive || playerBiome != "bugBoss") {
         return;
     }
 
     element.label.isAttacking = true;
     let littleBugSting = undefined;
     littleBugSting = createElement(false, littleBugSting, attacksInfo.littleBugSting.size, attacksInfo.littleBugSting.location, 0.5, false, './src/image/monsters/bug_boss/little_bug_sting.png', attacksInfo.littleBugSting);
-    monstersAttack.push(littleBugSting);
     littleBugSting.label = attacksInfo.littleBugSting;
     littleBugSting.y = element.y;
     littleBugSting.x = element.x;
+    monsterAttacks.push(littleBugSting);
+
     element.label["attackInfo"] = { ...attacksInfo.littleBugSting };
     element.label.attackInfo["sting"] = littleBugSting;
     element.label.attackInfo["originalLocation"] = { x: element.x, y: element.y };
@@ -2239,6 +2347,7 @@ function checkEntitiesFalling() {
                 });
             }
             catch (err) {
+                // console.log(entity.label.name + " does not have a container");
                 entity.y += entity.label.speedY;
             }
         } else {
@@ -2365,7 +2474,7 @@ function elementDied(element) {
                 element.visible = false;
             }
         }, 1500);
-        for (const monsterAttack of monstersAttack) {
+        for (const monsterAttack of monsterAttacks) {
             if (monsterAttack.label.from === element.label.name) {
                 monsterAttack.destroy();
                 monsterAttack.visible = false;
@@ -2518,7 +2627,8 @@ async function gameLoop(delta = 1) {
     }
 
     // Check if the player is attacked by the monsters
-    for (const attack of monstersAttack) {
+    for (const attack of monsterAttacks) {
+        // setUpSprite(attack);
         if (checkCollision(player, attack) === "right" || checkCollision(player, attack) === "left") {
             const attacker = monsters.find(monster => monster.label.name === attack.label.from);
             if (attacker.label.alive) {
@@ -2556,6 +2666,7 @@ async function gameLoop(delta = 1) {
                         monster.label.attackInfo.sting.visible = false;
                         monster.label.attackInfo.sting.destroy();
                         monster.label.isAttacking = false;
+                        monsterAttacks.splice(monsterAttacks.indexOf(monster.label.attackInfo.sting), 1);
                     }
                 }
                 catch (err) {
@@ -2610,6 +2721,7 @@ async function gameLoop(delta = 1) {
         } else {
             playerIsChiAttacking = false;
             chi.visible = false;
+            playerAttacks.splice(playerAttacks.indexOf(chi), 1);
         }
     }
 
@@ -2683,6 +2795,7 @@ async function gameLoop(delta = 1) {
             strikePig.label.isAttacking = false;
             strikePigSmoke.visible = false;
             strikePigStrike.visible = false;
+            monsterAttacks.splice(monsterAttacks.indexOf(strikePigStrike), 1);
         }
     }
 
@@ -2700,6 +2813,7 @@ async function gameLoop(delta = 1) {
             bugBossStrike.x = bugBoss.x;
             bugBossStrike.visible = false;
             bugBoss.label.isAttacking = false;
+            monsterAttacks.splice(monsterAttacks.indexOf(bugBossStrike), 1);
         }
     }
 
@@ -2708,10 +2822,15 @@ async function gameLoop(delta = 1) {
         case "forest":
             allowPlayerMoveOutOfScreen = true;
             for (const background of backgrounds) {
-                if (background.label === "forest1") {
-                    currentBackgroundPosition['minX'] = background.getBounds().minX;
-                } else if (background.label === "forest3") {
-                    currentBackgroundPosition['maxX'] = background.getBounds().maxX;
+                try {
+                    if (background.label === "forest1") {
+                        currentBackgroundPosition['minX'] = background.getBounds().minX;
+                    } else if (background.label === "forest3") {
+                        currentBackgroundPosition['maxX'] = background.getBounds().maxX;
+                    }
+                }
+                catch (err) {
+                    console.log(background);
                 }
             }
             break;
@@ -2808,9 +2927,9 @@ async function gameLoop(delta = 1) {
         // Just for testing
         elementDamaged(player, charactersInfo.player.status.maxHealth);
     }
-    if (key['i'] && playerBiome !== "dungeon") {
+    if (key['i'] && playerBiome !== "finalBoss") {
         // Just for testing
-        finalBossRightArm.rotation += 0.1;
+        transitionToFinalBoss();
     }
 
     // Abilities key press
@@ -2845,7 +2964,5 @@ async function gameLoop(delta = 1) {
         }
     }
 
-    finalBossRightArm.anchor.set(0.5, 0);
-    finalBossLeftArm.anchor.set(0.5, 0);
     checkEntitiesFalling();
 }
