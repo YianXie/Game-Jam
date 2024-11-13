@@ -45,7 +45,7 @@ let inCoolDown = 0;
 let playerHoldSword = 0;
 let checkInstructionAlertAlready = false;
 let dialogueReminderAlready = false;
-let audios = [];
+let BGMs = [];
 let unlockedAbilities = [];
 let key = {};
 let mouse = {};
@@ -110,7 +110,8 @@ const littleBugWalkLeft2 = await PIXI.Assets.load('./src/image/monsters/bug_boss
 const littleBugDied = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_die.png');
 const littleBugStingTexture = await PIXI.Assets.load('./src/image/monsters/bug_boss/little_bug_sting.png'); // there is no left or right image for the little bug sting
 
-const finalBossBodyTexture = await PIXI.Assets.load('./src/image/monsters/final_boss/final_boss_body.png');
+const finalBossBodyFaceLeftTexture = await PIXI.Assets.load('./src/image/monsters/final_boss/final_boss_body_face_left.png');
+const finalBossBodyFaceRightTexture = await PIXI.Assets.load('./src/image/monsters/final_boss/final_boss_body_face_right.png');
 const finalBossArmTexture = await PIXI.Assets.load('./src/image/monsters/final_boss/final_boss_arm.png');
 const finalBossSwordTexture = await PIXI.Assets.load('./src/image/monsters/final_boss/final_boss_sword.png');
 
@@ -376,9 +377,9 @@ const monstersInfo = {
             faceLeftX: -gameWidth * 0.03,
         },
         entityRemainHealthPosition: {
-            y: -gameHeight * 0.1,
-            faceRightX: gameWidth * 0.04,
-            faceLeftX: -gameWidth * 0.04,
+            y: -gameHeight * 0.25,
+            faceRightX: gameWidth * 0.05,
+            faceLeftX: -gameWidth * 0.05,
         },
         isBlocked: {
             left: false,
@@ -829,10 +830,14 @@ let healthText, energyText;
 // Audio
 const ambientMusic = new Audio('./src/audio/BGM/ambient.mp3'); // BGM by Rick
 ambientMusic.loop = true;
-audios.push(ambientMusic);
+BGMs.push(ambientMusic);
 const battleMusic = new Audio('./src/audio/BGM/battle.mp3'); // BGM by Rick
 battleMusic.loop = true;
-audios.push(battleMusic);
+BGMs.push(battleMusic);
+const finalBossMusic = new Audio('./src/audio/BGM/final_boss.mp3');
+finalBossMusic.loop = true;
+BGMs.push(finalBossMusic);
+
 const freeSwordSound = new Audio('./src/audio/player/free_sword.mp3');
 const unlockAbilitySound = new Audio('./src/audio/player/unlock_ability.mp3');
 const playerChiAttackSound = new Audio('./src/audio/player/player_chi_attack.mp3');
@@ -898,6 +903,7 @@ async function init() {
     document.querySelector("#gameDiv").addEventListener('mousedown', mouseDown);
     document.querySelector("#gameDiv").addEventListener('mouseup', mouseUp);
     app.ticker.add(gameLoop);
+    app.ticker.maxFPS = 60;
 
     // Play the background music (BGM)
     battleMusic.play();
@@ -1020,6 +1026,7 @@ async function init() {
     buddaStatus = createElement(false, buddaStatus, supportingObjectsInfo.buddaStatus.size, supportingObjectsInfo.buddaStatus.location, 0.5, true, './src/image/others/budda_status.png', supportingObjectsInfo.buddaStatus);
     supportingObjects.push(buddaStatus);
 
+    createFinalBossTexture();
     finalBossLeftSword = createElement(
         false,
         finalBossLeftSword,
@@ -1082,7 +1089,7 @@ async function init() {
 
     finalBossBody = createMonster(
         monstersInfo.finalBossBody,
-        './src/image/monsters/final_boss/final_boss_body.png',
+        './src/image/monsters/final_boss/final_boss_body_face_left.png',
         true,
         true,
         false
@@ -1140,7 +1147,7 @@ async function init() {
 async function getPixelsData(sprite) {
     const renderTexture = PIXI.RenderTexture.create(sprite.width, sprite.height);
     app.renderer.render(sprite, renderTexture);
-    
+
     const canvas = document.createElement('canvas');
     canvas.width = sprite.width;
     canvas.height = sprite.height;
@@ -1181,6 +1188,7 @@ function setUpSprite(sprite) {
     });
 }
 
+// Add event listeners
 document.getElementById("openInstruction").addEventListener('click', (event) => {
     event.preventDefault();
     showInstructions();
@@ -1188,11 +1196,13 @@ document.getElementById("openInstruction").addEventListener('click', (event) => 
 document.getElementById("closeInstruction").addEventListener('click', hideInstructions);
 document.getElementById("closeAlertInstruction").addEventListener('click', closeInstructionAlert);
 
+// Final boss - dungeon - bugboss - forest
 async function transitionToForest() {
     allowPlayerMoveOutOfScreen = true;
+    player.x = app.screen.width * 1.5 + Math.abs(canvasOffsetDistance);
     playerBiome = "forest";
-    player.x = app.screen.width * 1.5 + canvasOffsetDistance;
-    updateCanvas("left", app.screen.width + canvasOffsetDistance, "teleport");
+    updateCanvas(app.screen.width + Math.abs(canvasOffsetDistance), "teleport");
+    updateMinFloorHeight(gameHeight * 6 / 7);
 
     battleMusic.pause();
     ambientMusic.currentTime = 0;
@@ -1215,11 +1225,11 @@ async function transitionToForest() {
 
 async function transitionToDungeon() {
     allowPlayerMoveOutOfScreen = false;
-    player.x = -app.screen.width * 0.5;
+    player.x = -app.screen.width * 0.5 + Math.abs(canvasOffsetDistance);
     playerBiome = "dungeon";
-    updateCanvas("right", app.screen.width, "teleport");
+    updateCanvas(-app.screen.width + Math.abs(canvasOffsetDistance), "teleport");
 
-    audios.forEach((audio) => {
+    BGMs.forEach((audio) => {
         if (audio !== ambientMusic) {
             audio.pause();
         } else {
@@ -1246,9 +1256,9 @@ async function transitionToFinalBoss() {
     updateMinFloorHeight(gameHeight * 5.5 / 7);
     allowPlayerMoveOutOfScreen = false;
 
-    player.x = -app.screen.width * 1.5;
+    player.x = -app.screen.width * 1.5 + Math.abs(canvasOffsetDistance);
     playerBiome = "finalBoss";
-    updateCanvas("right", app.screen.width * 2, "teleport");
+    updateCanvas(-app.screen.width * 2 + Math.abs(canvasOffsetDistance), "teleport");
 }
 
 function updateMinFloorHeight(value) {
@@ -1698,6 +1708,7 @@ function dialogue(speaker, message, container) {
                 }
             );
             nextDialogueArrow.anchor = 0.5;
+            nextDialogueArrow.cursor = 'pointer';
             nextDialogueArrow.x = msg.x + msg.width / 2 - message.padding * 2;
             nextDialogueArrow.y = msg.y - msg.height - message.padding * 2;
 
@@ -1714,8 +1725,16 @@ function dialogue(speaker, message, container) {
                 messageArray.shift();
                 showMessage();
             })
-            document.addEventListener("keydown", function detectEnter(e) {
-                if (e.key === "Enter") {
+
+            try {
+                document.removeEventListener('keydown', enterDetector);
+            }
+            catch (err) {
+
+            }
+            const enterDetector = document.addEventListener("keydown", function detectEnter(e) {
+                if (e.key === "Enter" && messageArray.length > 1) {
+                    console.log("Show next dialogue with keys");
                     hideCurrentMessage();
                     messageArray.shift();
                     showMessage();
@@ -1743,6 +1762,7 @@ function dialogue(speaker, message, container) {
                 }
             )
             closeDialogueX.anchor = 0.5;
+            closeDialogueX.cursor = 'pointer';
             closeDialogueX.x = msg.x + msg.width / 2 - message.padding * 2;
             closeDialogueX.y = msg.y - msg.height - message.padding * 2;
             currentDialogue["closeDialogueX"] = closeDialogueX;
@@ -1759,8 +1779,15 @@ function dialogue(speaker, message, container) {
                 resolve();
                 hideDialogue();
             })
-            document.addEventListener("keydown", function detectEnter(e) {
-                if (e.key === "Enter") {
+
+            try {
+                document.removeEventListener('keydown', enterDetector);
+            }
+            catch (err) {
+
+            }
+            const enterDetector = document.addEventListener("keydown", function detectEnter(e) {
+                if (e.key === "Enter" && messageArray.length <= 1) {
                     resolve();
                     hideDialogue();
                     document.removeEventListener("keydown", detectEnter);
@@ -1897,12 +1924,22 @@ function createLittleBugTexture() {
     ]
 }
 
+function createFinalBossTexture() {
+    console.log("Creating final boss texture");
+    monstersInfo.finalBossBody.texture['faceLeft'] = [
+        new PIXI.Texture(finalBossBodyFaceLeftTexture, new PIXI.Rectangle(0, 0, monstersInfo.finalBossBody.size.width, monstersInfo.finalBossBody.size.height)),
+    ]
+    monstersInfo.finalBossBody.texture['faceRight'] = [
+        new PIXI.Texture(finalBossBodyFaceRightTexture, new PIXI.Rectangle(0, 0, monstersInfo.finalBossBody.size.width, monstersInfo.finalBossBody.size.height)),
+    ]
+}
+
 function playerJump() {
     // Allow the player to jump by adjusting the y speed (just like real life)
     charactersInfo.player.speedY = -20;
 }
 
-function updateCanvas(direction, amount = charactersInfo.player.speed, mode = "normal") {
+function updateCanvas(amount = charactersInfo.player.speed, mode = "normal") {
     // The direction here refers to the direction of the canvas' movement
     if (!allowPlayerMoveOutOfScreen && mode === "normal") {
         return;
@@ -1916,24 +1953,12 @@ function updateCanvas(direction, amount = charactersInfo.player.speed, mode = "n
     if ((currentBackgroundPosition.maxX - gameWidth / 2) < player.x) {
         playerIsNearRightBorder = true;
     }
-    if ((!playerIsNearLeftBorder && !playerIsNearRightBorder) || mode === 'teleport') {
-        if (direction === "left") {
-            canvasOffsetDistance -= amount;
-        } else if (direction === "right") {
-            canvasOffsetDistance += amount;
-        }
 
+    if ((!playerIsNearLeftBorder && !playerIsNearRightBorder) || mode === 'teleport') {
+        canvasOffsetDistance += amount;
         app.stage.children.forEach((child) => {
-            if (direction === "left") {
-                // Player is moving right, background is moving left
-                if (child.label != "healthBar" && child.label != "energyBar") {
-                    child.x -= amount;
-                }
-            } else if (direction === "right") {
-                // Player is moving left, background is moving right
-                if (child.label != "healthBar" && child.label != "energyBar") {
-                    child.x += amount;
-                }
+            if (child.label != "healthBar" && child.label != "energyBar") {
+                child.x -= amount;
             }
         });
     }
@@ -2010,7 +2035,7 @@ function audioFadeIn(audio, duration) {
 
 function currentPlayingAudio() {
     // Return the audio that is currently playing
-    audios.forEach((audio) => {
+    BGMs.forEach((audio) => {
         if (!audio.paused) {
             return audio;
         }
@@ -2061,11 +2086,21 @@ function distanceBetween(element1, element2) {
 }
 
 function monsterFollowPlayer(monster) {
-    if (!monster.label.alive || monster.label.isAttacking || !charactersInfo.player.alive) {
+    if (!monster.label.alive || !charactersInfo.player.alive || monster.label.isAttacking) {
         return;
     }
 
-    if ((distanceBetween(player, monster) + canvasOffsetDistance) > monster.label.range) {
+    let distance = distanceBetween(player, monster);
+    if (allowPlayerMoveOutOfScreen || canvasOffsetDistance !== 0) {
+        distance += canvasOffsetDistance;
+    }
+    if (monster.label.name === 'strikePig') {
+        // Debugging
+        console.log("Distance between strike pig and player: " + distance);
+        console.log(strikePig.x);
+    }
+
+    if (Math.abs(distance) > monster.label.range) {
         // if the player is out of the range of the monster
         if (monster.textures === monster.label.texture.walkRight || monster.textures === monster.label.texture.faceRight) {
             monster.textures = monster.label.texture.faceRight;
@@ -2084,11 +2119,12 @@ function monsterFollowPlayer(monster) {
     }
 
     let monsterLocation = monster.x;
-    if (allowPlayerMoveOutOfScreen) {
+    if (allowPlayerMoveOutOfScreen || canvasOffsetDistance != 0) {
         monsterLocation += canvasOffsetDistance;
     }
 
     if (monsterLocation > (player.x + monster.label.range * 0.25)) {
+        console.log(monster.label.name + " is walking left");
         if (!monster.playing || monster.textures !== monster.label.texture.walkLeft) {
             // Change the texture of the monster to walk left
             if (!monster.label.isDamaged) {
@@ -2113,6 +2149,7 @@ function monsterFollowPlayer(monster) {
         monster.label.container.children.forEach((child) => {
             if (child.label.name === "exclamationMark") {
                 child.visible = true;
+                child.texture = exclamationMarkRed;
                 child.x = monster.x + monster.label.exclamationMarkPosition.faceLeftX;
                 child.y = monster.y + monster.label.exclamationMarkPosition.y;
             }
@@ -2142,14 +2179,16 @@ function monsterFollowPlayer(monster) {
         monster.label.container.children.forEach((child) => {
             if (child.label.name === "exclamationMark") {
                 child.visible = true;
+                child.texture = exclamationMarkRed;
                 child.x = monster.x + monster.label.exclamationMarkPosition.faceRightX;
                 child.y = monster.y + monster.label.exclamationMarkPosition.y;
             }
             child.x += monster.label.speed;
         });
-    } else {
+    } else if (monsterLocation >= (player.x - monster.label.range * 0.25) && monsterLocation <= (player.x + monster.label.range * 0.25)) {
         // If the monster is close to the player, stop moving and attack
         if (!monster.label.isAttacking || (monster.label.status.health < monster.label.status.maxHealth && !monster.label.isAttacking)) {
+            console.log(monster.label.name + " is attacking");
             monster.label.attack(monster);
             monster.label.container.children.forEach((child) => {
                 if (child.label.name === "exclamationMark") {
@@ -2160,60 +2199,29 @@ function monsterFollowPlayer(monster) {
     }
 }
 
-function moveExlcamationMark(monster) {
-    if (!monster.label.alive) {
-        return;
-    }
-
-    let exclamationMark;
-    monster.label.container.children.forEach((child) => {
-        if (child.label.name === "exclamationMark") {
-            exclamationMark = child;
-        }
-    });
-
-    exclamationMark.visible = true;
-    exclamationMark.texture = exclamationMarkRed;
-    exclamationMark.y = monster.y + monster.label.exclamationMarkPosition.y;
-
-    if (monster.textures === monster.label.texture.walkRight || monster.textures === monster.label.texture.faceRight) {
-        exclamationMark.x = monster.x + monster.label.exclamationMarkPosition.faceRightX;
-    } else if (monster.textures === monster.label.texture.walkLeft || monster.textures === monster.label.texture.faceLeft) {
-        exclamationMark.x = monster.x + monster.label.exclamationMarkPosition.faceLeftX;
-    }
-}
-
 let strikePigStrikeInProgress = false;
 let strikeDirection = "";
 function strikePigAttack() {
-    if (!strikePig.label.alive || !player.label.alive) {
+    if (!strikePig.label.alive || !player.label.alive || playerBiome != 'forest' || strikePig.label.isAttacking || strikePig.label.isStriking) {
         return;
     }
 
-    console.log("Strike pig is attacking");
     strikePig.label.isAttacking = true;
-
     let strikePigCoords = strikePig.x;
-    if (allowPlayerMoveOutOfScreen) {
+    if (allowPlayerMoveOutOfScreen || canvasOffsetDistance !== 0) {
         strikePigCoords += canvasOffsetDistance;
+        strikePigSmoke.x += canvasOffsetDistance;
     }
-    strikePig.label['originalLocation'] = strikePigCoords;
 
     strikePigSmoke.visible = true;
     if (strikePigCoords > player.x) {
         strikePigSmoke.x = strikePig.x + 100;
         strikePigSmoke.texture = smokeFaceLeft;
-        if (allowPlayerMoveOutOfScreen) {
-            strikePigSmoke.x += canvasOffsetDistance;
-        }
         strikePig.label['strikeDirection'] = "left";
         strikePig.textures = monstersInfo.strikePig.texture.walkLeft;
     } else if (strikePigCoords < player.x) {
         strikePigSmoke.x = strikePig.x - 100;
         strikePigSmoke.texture = smokeFaceRight;
-        if (allowPlayerMoveOutOfScreen) {
-            strikePigSmoke.x += canvasOffsetDistance;
-        }
         strikePig.label['strikeDirection'] = "right";
         strikePig.textures = monstersInfo.strikePig.texture.walkRight;
     }
@@ -2222,9 +2230,10 @@ function strikePigAttack() {
     strikePig.animationSpeed = monstersInfo.strikePig.animationSpeed * 2;
     strikePig.play();
 
+    strikePig.label['originalLocation'] = strikePigCoords;
     setTimeout(() => {
         strikePig.label['isStriking'] = true;
-    }, 1500);
+    }, 1000);
 }
 
 function createLittleBug() {
@@ -2540,6 +2549,7 @@ function gameOver() {
         }
     );
     respawnButton.anchor.set(0.5);
+    respawnButton.cursor = 'pointer';
     respawnButton.x = app.screen.width / 2;
     respawnButton.y = app.screen.height / 2 - 25;
     respawnButton.interactive = true;
@@ -2566,6 +2576,7 @@ function gameOver() {
         }
     );
     quitButton.anchor.set(0.5);
+    quitButton.cursor = 'pointer';
     quitButton.x = app.screen.width / 2;
     quitButton.y = app.screen.height / 2 + 25;
     quitButton.interactive = true;
@@ -2733,7 +2744,7 @@ async function gameLoop(delta = 1) {
                     player.x += gameWidth * 0.025;
                     playerRollSmoke.texture = smokeFaceRight;
                     if (allowPlayerMoveOutOfScreen) {
-                        updateCanvas("left", gameWidth * 0.025);
+                        updateCanvas(gameWidth * 0.025);
                     }
                 }
             } else if (playerRollInfo.direction === "left") {
@@ -2742,7 +2753,7 @@ async function gameLoop(delta = 1) {
                     player.x -= gameWidth * 0.025;
                     playerRollSmoke.texture = smokeFaceLeft;
                     if (allowPlayerMoveOutOfScreen) {
-                        updateCanvas("right", gameWidth * 0.025);
+                        updateCanvas(-gameWidth * 0.025);
                     }
                 }
             }
@@ -2760,30 +2771,31 @@ async function gameLoop(delta = 1) {
     } else {
         if (playerRollCoolDown > 0) {
             playerRollCoolDown--;
-        } else {
-            // playerRollReadySound.play();
         }
     }
 
     // Check if the strike pig is attacking
     if (strikePig.label.isStriking && strikePig.label.alive && player.label.alive) {
         let strikePigCoords = strikePig.x;
-        if (allowPlayerMoveOutOfScreen) {
+        if (allowPlayerMoveOutOfScreen || canvasOffsetDistance !== 0) {
             strikePigCoords += canvasOffsetDistance;
         }
 
         if (Math.abs(strikePigCoords - strikePig.label.originalLocation) < strikePig.label.range * 1.5) {
             strikePigStrike.visible = true;
             strikePigStrike.y = strikePig.y;
+            strikePig.play();
             if (strikePig.label.strikeDirection === "right" && !strikePig.label.isBlocked.right) {
                 strikePigStrike.texture = strikeWaveFaceRight;
-                strikePigStrike.x = strikePigCoords + 100;
+                strikePigStrike.x = strikePig.x + 100;
+                strikePig.textures = monstersInfo.strikePig.texture.walkRight;
                 strikePig.label.container.children.forEach((child) => {
                     child.x += strikePig.label.speed * 5;
                 });
             } else if (strikePig.label.strikeDirection === "left" && !strikePig.label.isBlocked.left) {
                 strikePigStrike.texture = strikeWaveFaceLeft;
-                strikePigStrike.x = strikePigCoords - 100;
+                strikePigStrike.x = strikePig.x - 100;
+                strikePig.textures = monstersInfo.strikePig.texture.walkLeft;
                 strikePig.label.container.children.forEach((child) => {
                     child.x -= strikePig.label.speed * 5;
                 });
@@ -2879,7 +2891,7 @@ async function gameLoop(delta = 1) {
         if (!charactersInfo.player.isBlocked.left) {
             player.x -= charactersInfo.player.speed;
             isMoving = true;
-            updateCanvas("right", charactersInfo.player.speed);
+            updateCanvas(-charactersInfo.player.speed);
         }
     }
     if (key['d'] || key["ArrowRight"]) {
@@ -2903,7 +2915,7 @@ async function gameLoop(delta = 1) {
         if (!charactersInfo.player.isBlocked.right) {
             player.x += charactersInfo.player.speed;
             isMoving = true;
-            updateCanvas("left", charactersInfo.player.speed);
+            updateCanvas(charactersInfo.player.speed);
         }
     }
     if ((key[' '] || key['w'] || key['ArrowUp']) && !charactersInfo.player.isJumping) {
