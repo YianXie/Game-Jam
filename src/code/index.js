@@ -18,10 +18,27 @@ document.body.querySelector("#gameDiv").appendChild(app.canvas);
 
 // Game variables
 const gravity = 1.5;
+const introCaptions = {
+    // Seconds
+    scene1: [
+        { time: 10, text: "Hell, it was a hell full of torment and pain. I had to escape the army, although what's behind me is my greatest country, Tang." },
+        { time: 19, text: "The An Lushan army was brutal. These Huren are cannibals, they are giants and beasts!" },
+        { time: 26.5, text: "I was forced to be here by the government, those who are vicious beyond measure, spending days in the pond of wine and forest of meat. I don't wanna die!" },
+        { time: 36, text: "Father, don't leave us! Sir, please leave my dad alone!" },
+        { time: 41.5, text: "Sir, this is all my family has. We will give it to you, please leave him alone!" },
+        { time: 48, text: "My family tried, but failed. I can't fight the foreigners, nor my own country. They were still waiting for me, so I had to go." },
+        { time: 58, text: "It was a dark night, and I sneaked out of the camp, leaving everything behind. The moon seemed to be a colossal eye, staring at me, trying to make me return and take the responsibility, but who cares about the country! I want to survive." },
+        { time: 75, text: "Look! They are still clogging there!" },
+        { time: 79, text: "But here I am, in a safe cave, miles from the war, no one is here, and I will return to my family in a short while." },
+        { time: 89, text: "Wait, it seems like there is something else here..." },
+    ],
+    scene2: []
+};
 let currentBackgroundPosition = {
     minX: 0,
     maxX: 0,
 };
+let alreadyPlayedIntro = false;
 let gamePaused = false;
 let playerDeathNum = 0;
 let canvasOffsetDistance = 0;
@@ -358,7 +375,7 @@ const monstersInfo = {
         name: "strikePig",
         alive: true,
         location: {
-            x: app.screen.width * 2.5,
+            x: app.screen.width * 2.75,
             y: app.screen.height / 2,
         },
         size: {
@@ -533,12 +550,12 @@ const monstersInfo = {
             shield: false,
         },
         exclamationMarkPosition: {
-            y: -(gameHeight * 0.25),
+            y: 0,
             faceRightX: 0,
             faceLeftX: 0,
         },
         entityRemainHealthPosition: {
-            y: -(gameHeight * 0.15),
+            y: 0,
             faceRightX: 0,
             faceLeftX: 0,
         },
@@ -571,7 +588,7 @@ const monstersInfo = {
     reset: function () {
         this.strikePig.status.health = this.strikePig.status.maxHealth;
         this.strikePig.alive = true;
-        this.strikePig.location.x = app.screen.width * 2.5;
+        this.strikePig.location.x = app.screen.width * 2.75;
         this.strikePig.location.y = app.screen.height / 2;
         this.strikePig.speedY = 0;
         this.strikePig.isJumping = false;
@@ -796,8 +813,8 @@ const symbolsInfo = {
     finalBossArms: {
         name: "finalBossArms",
         location: {
-            x: monstersInfo.finalBossBody.location.x - monstersInfo.finalBossBody.size.width / 2,
-            y: monstersInfo.finalBossBody.location.y + 50,
+            x: monstersInfo.finalBossBody.location.x - monstersInfo.finalBossBody.size.width / 4,
+            y: monstersInfo.finalBossBody.location.y - monstersInfo.finalBossBody.size.height,
         },
         size: {
             width: diagonalLength * 0.125,
@@ -838,6 +855,7 @@ const finalBossMusic = new Audio('./src/audio/BGM/final_boss.mp3');
 finalBossMusic.loop = true;
 BGMs.push(finalBossMusic);
 
+const introScene1 = new Audio('./src/audio/intro/scene_1.mp3');
 const freeSwordSound = new Audio('./src/audio/player/free_sword.mp3');
 const unlockAbilitySound = new Audio('./src/audio/player/unlock_ability.mp3');
 const playerChiAttackSound = new Audio('./src/audio/player/player_chi_attack.mp3');
@@ -850,6 +868,7 @@ const characterStartSpeaking = [
     new Audio('./src/audio/player/character_start_speaking_3.mp3'),
 ];
 const playerTeleportSound = new Audio('./src/audio/player/player_teleport.mp3');
+playerTeleportSound.volume = 0.25;
 
 function askForInit() {
     if (confirm("Do you want to view an instruction first before you start?")) {
@@ -874,7 +893,13 @@ async function init() {
     catch (err) {
         console.log(err);
     }
-    app.renderer.background.color = 'transparent'; // change the background color to black
+    app.renderer.background.color = 'transparent';
+
+    if (!alreadyPlayedIntro) {
+        app.renderer.background.color = 'lightgray';
+        await playIntro();
+        app.renderer.background.color = 'transparent';
+    }
 
     // Reset the entities and arrays
     charactersInfo.reset();
@@ -1063,12 +1088,12 @@ async function init() {
         finalBossLeftArm,
         symbolsInfo.finalBossArms.size,
         symbolsInfo.finalBossArms.location,
-        (0.5, 0),
+        (0.5, 1),
         true,
         './src/image/monsters/final_boss/final_boss_arm.png',
         symbolsInfo.finalBossArms
     )
-    finalBossLeftArm.anchor.set(0.5, 0);
+    finalBossLeftArm.anchor.set(0.5, 1);
     finalBossLeftArm.rotation = symbolsInfo.finalBossArms.originalRotation;
 
     finalBossRightArm = createElement(
@@ -1076,15 +1101,15 @@ async function init() {
         finalBossRightArm,
         symbolsInfo.finalBossArms.size,
         {
-            x: monstersInfo.finalBossBody.location.x + monstersInfo.finalBossBody.size.width / 2,
+            x: symbolsInfo.finalBossArms.location.x + monstersInfo.finalBossBody.size.width / 2,
             y: symbolsInfo.finalBossArms.location.y,
         },
-        (0, 0.5),
+        (0.5, 1),
         true,
         './src/image/monsters/final_boss/final_boss_arm.png',
         symbolsInfo.finalBossArms
     )
-    finalBossRightArm.anchor.set(0.5, 0);
+    finalBossRightArm.anchor.set(0.5, 1);
     finalBossRightArm.rotation = -symbolsInfo.finalBossArms.originalRotation;
 
     finalBossBody = createMonster(
@@ -1096,11 +1121,14 @@ async function init() {
     ).monster;
     monsters.push(finalBossBody);
 
-    finalBossBody.zIndex = 1;
     finalBossBody.label.container.addChild(finalBossLeftSword);
     finalBossBody.label.container.addChild(finalBossRightSword);
     finalBossBody.label.container.addChild(finalBossLeftArm);
     finalBossBody.label.container.addChild(finalBossRightArm);
+    finalBossBody.label.container.children.forEach((child) => {
+        child.zIndex = 1;
+    });
+    finalBossBody.zIndex = 2;
 
     // Create the text for the health and energy
     // Did not use the createElement function because the text is not an image
@@ -1276,6 +1304,83 @@ function updateMinFloorHeight(value) {
         }
         monster.label.floorY = minFloorHeight - monster.height / 2;
     });
+}
+
+async function playIntro() {
+    await canvasFadeOut(1000);
+    introScene1.play();
+
+    for (let i  = 0; i < introCaptions.scene1.length; i++) {
+        const currentCaption = introCaptions.scene1[i];
+        const nextCaptionTime = introCaptions.scene1[i + 1] ? introCaptions.scene1[i + 1].time : null;
+
+        if (nextCaptionTime) {
+            const delay = (nextCaptionTime - currentCaption.time) * 1000;
+            console.log("Delay:", delay);
+            await showCaption(currentCaption.text);
+            await sleep(delay);
+            await hideCaption();
+        } else {
+            // The last caption
+            await showCaption(currentCaption.text);
+            await sleep(4000);
+            await hideCaption();
+            await canvasFadeIn(1000);
+        }
+
+        console.log("Caption: " + currentCaption.text);
+    }
+
+    alreadyPlayedIntro = true;
+}
+
+function showCaption(text) {
+    return new Promise((resolve) => {
+        const caption = new PIXI.Text(text, {
+            fontFamily: 'Arial',
+            fontSize: 24,
+            fill: 'white',
+            wordWrap: true,
+            wordWrapWidth: app.screen.width * 0.8,
+            align: 'center',
+        });
+        caption.anchor.set(0.5);
+        caption.x = app.screen.width / 2;
+        caption.y = app.screen.height / 2;
+        caption.zIndex = 101;
+        caption.alpha = 0;
+        caption.label = "caption";
+        app.stage.addChild(caption);
+        for (let i = 0; i < 1; i += 0.01) {
+            setTimeout(() => {
+                caption.alpha = i;
+            }, i * 1000);
+        }
+        setTimeout(resolve, 1000);
+    });
+}
+
+function hideCaption() {
+    return new Promise((resolve) => {
+        app.stage.children.forEach((child) => {
+            if (child.label === "caption") {
+                for (let i = 1; i >= 0; i -= 0.01) {
+                    setTimeout(() => {
+                        child.alpha = i;
+                    }, (1 - i) * 1000);
+                }
+                setTimeout(() => {
+                    child.destroy();
+                    app.stage.removeChild(child);
+                    resolve();
+                }, 1000);
+            }
+        });
+    });
+}
+
+function sleep(ms = 1000) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function showBackground(blurLevel) {
@@ -1483,6 +1588,14 @@ function createMonster(monsterInfo, texture, createRemainHealth, createExclamati
         exclamationMark = PIXI.Sprite.from('./src/image/monsters/exclamation_mark_red.png');
         exclamationMark.anchor.set(0.5);
         exclamationMark.visible = false;
+        if (texture.includes("left")) {
+            exclamationMark.x = info.location.x + info.exclamationMarkPosition.faceLeftX;
+        } else if (texture.includes("right")) {
+            exclamationMark.x = info.location.x + info.exclamationMarkPosition.faceRightX;
+        } else {
+            exclamationMark.x = info.location.x;
+        }
+        exclamationMark.y = info.location.y + info.exclamationMarkPosition.y;
         exclamationMark.width = symbolsInfo.exclamationMark.size.width * info.size.width / 250;
         exclamationMark.height = symbolsInfo.exclamationMark.size.height * info.size.height / 250;
         exclamationMark.label = symbolsInfo.exclamationMark;
@@ -2090,17 +2203,12 @@ function monsterFollowPlayer(monster) {
         return;
     }
 
-    let distance = distanceBetween(player, monster);
-    if (allowPlayerMoveOutOfScreen || canvasOffsetDistance !== 0) {
-        distance += canvasOffsetDistance;
-    }
-    if (monster.label.name === 'strikePig') {
-        // Debugging
-        console.log("Distance between strike pig and player: " + distance);
-        console.log(strikePig.x);
+    let monsterLocation = monster.x;
+    if (allowPlayerMoveOutOfScreen || canvasOffsetDistance != 0) {
+        monsterLocation -= canvasOffsetDistance;
     }
 
-    if (Math.abs(distance) > monster.label.range) {
+    if (monsterLocation > (player.x + monster.label.range) || monsterLocation < (player.x - monster.label.range)) {
         // if the player is out of the range of the monster
         if (monster.textures === monster.label.texture.walkRight || monster.textures === monster.label.texture.faceRight) {
             monster.textures = monster.label.texture.faceRight;
@@ -2118,13 +2226,7 @@ function monsterFollowPlayer(monster) {
         return;
     }
 
-    let monsterLocation = monster.x;
-    if (allowPlayerMoveOutOfScreen || canvasOffsetDistance != 0) {
-        monsterLocation += canvasOffsetDistance;
-    }
-
     if (monsterLocation > (player.x + monster.label.range * 0.25)) {
-        console.log(monster.label.name + " is walking left");
         if (!monster.playing || monster.textures !== monster.label.texture.walkLeft) {
             // Change the texture of the monster to walk left
             if (!monster.label.isDamaged) {
@@ -2138,11 +2240,6 @@ function monsterFollowPlayer(monster) {
                     monster.textures = monster.label.texture.faceLeft;
                     monster.loop = false;
                 }
-                monster.label.container.children.forEach((child) => {
-                    if (child.label.name === "entityRemainHealth") {
-                        child.x = monster.x + monster.label.entityRemainHealthPosition.faceLeftX;
-                    }
-                });
             }
         }
 
@@ -2152,6 +2249,10 @@ function monsterFollowPlayer(monster) {
                 child.texture = exclamationMarkRed;
                 child.x = monster.x + monster.label.exclamationMarkPosition.faceLeftX;
                 child.y = monster.y + monster.label.exclamationMarkPosition.y;
+            } if (child.label.name === "entityRemainHealth") {
+                child.visible = true;
+                child.x = monster.x + monster.label.entityRemainHealthPosition.faceLeftX;
+                child.y = monster.y + monster.label.entityRemainHealthPosition.y;
             }
             child.x -= monster.label.speed;
         });
@@ -2169,11 +2270,6 @@ function monsterFollowPlayer(monster) {
                     monster.textures = monster.label.texture.faceRight;
                     monster.loop = false;
                 }
-                monster.label.container.children.forEach((child) => {
-                    if (child.label.name === "entityRemainHealth") {
-                        child.x = monster.x + monster.label.entityRemainHealthPosition.faceRightX;
-                    }
-                });
             }
         }
         monster.label.container.children.forEach((child) => {
@@ -2182,10 +2278,14 @@ function monsterFollowPlayer(monster) {
                 child.texture = exclamationMarkRed;
                 child.x = monster.x + monster.label.exclamationMarkPosition.faceRightX;
                 child.y = monster.y + monster.label.exclamationMarkPosition.y;
+            } if (child.label.name === "entityRemainHealth") {
+                child.visible = true;
+                child.x = monster.x + monster.label.entityRemainHealthPosition.faceRightX;
+                child.y = monster.y + monster.label.entityRemainHealthPosition.y;
             }
             child.x += monster.label.speed;
         });
-    } else if (monsterLocation >= (player.x - monster.label.range * 0.25) && monsterLocation <= (player.x + monster.label.range * 0.25)) {
+    } else {
         // If the monster is close to the player, stop moving and attack
         if (!monster.label.isAttacking || (monster.label.status.health < monster.label.status.maxHealth && !monster.label.isAttacking)) {
             console.log(monster.label.name + " is attacking");
@@ -2309,12 +2409,27 @@ function littleBugAttack(element) {
 }
 
 function finalBossAttack() {
-    finalBossBody.label.isAttacking = true;
-    if (finalBossLeftArm.angle < 180 && finalBossLeftArm.angle > 90) {
-        finalBossLeftArm.label['rotateDirection'] = "counterClockwise";
-    } else {
-        finalBossLeftArm.label['rotateDirection'] = "clockwise";
+    if (!finalBossBody.label.alive || !charactersInfo.player.alive || playerBiome != "finalBoss") {
+        return;
     }
+
+    finalBossBody.label.isAttacking = true;
+    // try {
+    //     if (finalBossBody.label.movingHand === 'left') {
+    //         finalBossBody.label.movingHand = 'right';
+    //         finalBossBody.label['rightHandOriginalAngle'] = finalBossRightArm.rotation;
+    //     } else if (finalBossBody.label.movingHand === 'right') {
+    //         finalBossBody.label.movingHand = 'left';
+    //         finalBossBody.label['leftHandOriginalAngle'] = finalBossLeftArm.leftHand.rotation;
+    //     } else {
+    //         finalBossBody.label.movingHand = 'left';
+    //         finalBossBody.label['leftHandOriginalAngle'] = finalBossLeftArm.leftHand.rotation;
+    //     }
+    // }
+    // catch (err) {
+    //     finalBossBody.label['movingHand'] = 'left';
+    //     finalBossBody.label['leftHandOriginalAngle'] = finalBossLeftArm.rotation;
+    // }
 }
 
 function checkEntitiesFalling() {
@@ -2826,6 +2941,24 @@ async function gameLoop(delta = 1) {
             bugBossStrike.visible = false;
             bugBoss.label.isAttacking = false;
             monsterAttacks.splice(monsterAttacks.indexOf(bugBossStrike), 1);
+        }
+    }
+
+    if (finalBossBody.label.alive && finalBossBody.label.isAttacking && charactersInfo.player.alive) {
+        if (finalBossBody.label.movingHand === 'left') {
+            if (Math.abs(finalBossLeftArm.rotation - finalBossBody.label.leftHandOriginalAngle) < 1.5) {
+                finalBossLeftArm.rotation -= 0.1;
+                // finalBossLeftSword.rotation -= 0.1;
+            } else {
+                finalBossBody.label.isAttacking = false;
+            }
+        } else if (finalBossBody.label.movingHand === 'right') {
+            if (Math.abs(finalBossRightArm.rotation - finalBossBody.label.rightHandOriginalAngle) < 1.5) {
+                finalBossRightArm.rotation -= 0.1;
+                // finalBossRightSword.rotation -= 0.1;
+            } else {
+                finalBossBody.label.isAttacking = false;
+            }
         }
     }
 

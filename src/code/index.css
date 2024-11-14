@@ -23,6 +23,21 @@ body {
     font-family: sans-serif;
 }
 
+#githubIcon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin: 10px;
+    font-size: 40px;
+    color: black;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#githubIcon:hover {
+    color: gray;
+}
+
 kbd {
     font-weight: bold;
     background: rgba(183, 183, 183, 0.75);
