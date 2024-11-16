@@ -1,6 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap');
+
 @font-face {
     font-family: 'Arcade';
-    src: url('../font/ARCADECLASSIC.TTF');
+    src: url('../font/Arcade.ttf');
+}
+@font-face {
+    font-family: 'Caveat';
+    src: url('../font/Caveat.ttf');
 }
 
 *::before,
@@ -21,6 +27,10 @@ body {
 body {
     text-align: center;
     font-family: sans-serif;
+}
+
+body #title {
+    font-family: 'Geist Mono', sans-serif;
 }
 
 #githubIcon {
@@ -307,6 +317,12 @@ canvas {
 /* Acticated the font */
 #arcadeFont {
     font-family: 'Arcade';
+    font-size: 0px;
+    visibility: hidden;
+}
+
+#caveatFont {
+    font-family: 'Caveat';
     font-size: 0px;
     visibility: hidden;
 }
