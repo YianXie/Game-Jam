@@ -5,9 +5,9 @@ globalThis.__PIXI_APP__ = app;
 
 const gameWidth = Math.round(window.innerWidth * 0.8);
 const gameHeight = Math.round(window.innerHeight * 0.75);
-
 const diagonalLength = Math.round(Math.sqrt(gameWidth * gameWidth + gameHeight * gameHeight));
 console.log("Width:", gameWidth, "\r\nHeight:", gameHeight, "\r\nDiagonal:", diagonalLength);
+
 await app.init(
     {
         width: gameWidth,
@@ -46,7 +46,7 @@ let playerBiome = "bugBoss"; // The default biome is bug boss (which is not typi
 let biomePlayerHasVisited = ["bugBoss"];
 let playerRegenerationInterval = undefined;
 let playerIsClickingButton = false;
-let playerIsRegenrating = false;
+let playerIsRegenarating = false;
 let isStartingGame = false;
 let gameIsRunning = false;
 let allowPlayerMoveOutOfScreen = false;
@@ -54,9 +54,9 @@ let currentDialogue = undefined;
 let coverBackground;
 let minFloorHeight = gameHeight * 6 / 7;
 let playerIsSwordAttacking = false;
-let playerIsSprinting = false;
-let playerSprintCooldown = 600; // 10 seconds, 60fps per second
-let playerSprintDuration = 300; // 5 seconds, 60fps per second
+let playerIsRiding = false;
+let playerRideCooldown = 600; // 10 seconds, 60fps per second
+let playerRideDuration = 300; // 5 seconds, 60fps per second
 let playerIsChiAttacking = false;
 let playerRollInfo = { isRolling: false, direction: "" };
 let playerRollCoolDown = 30; // 0.5 second, 60fps per second
@@ -160,6 +160,7 @@ const bugBossSeatTexture = await PIXI.Assets.load('./src/image/others/bug_boss_s
 const buddaStatusTexture = await PIXI.Assets.load('./src/image/others/budda_status.png');
 const stoneTexture = await PIXI.Assets.load('./src/image/others/stone.png');
 const houseTexture = await PIXI.Assets.load('./src/image/others/house.png');
+const portalTexture = await PIXI.Assets.load('./src/image/others/portal.png');
 
 // The start page
 const startPageContainer = new PIXI.Container();
@@ -412,14 +413,14 @@ const monstersInfo = {
             shield: false,
         },
         exclamationMarkPosition: {
-            y: -gameHeight * 0.18,
+            y: -gameHeight * 0.15,
             faceRightX: gameWidth * 0.03,
             faceLeftX: -gameWidth * 0.03,
         },
         entityRemainHealthPosition: {
-            y: -gameHeight * 0.25,
-            faceRightX: gameWidth * 0.05,
-            faceLeftX: -gameWidth * 0.05,
+            y: -gameHeight * 0.1,
+            faceRightX: gameWidth * 0.03,
+            faceLeftX: -gameWidth * 0.03,
         },
         isBlocked: {
             left: false,
@@ -833,11 +834,25 @@ const symbolsInfo = {
         },
         texture: {},
     },
+    portal: {
+        name: "portal",
+        location: {
+            x: app.screen.width * 4 - gameWidth * 0.1,
+            y: app.screen.height * 6 / 7 - gameHeight * 0.05,
+        },
+        size: {
+            width: diagonalLength * 0.15,
+            height: diagonalLength * 0.15,
+            average: (diagonalLength * 0.15 + diagonalLength * 0.15) / 2,
+        },
+        fadingOut: true,
+        texture: {},
+    },
     finalBossArms: {
         name: "finalBossArms",
         location: {
             x: monstersInfo.finalBossBody.location.x,
-            y: monstersInfo.finalBossBody.location.y - monstersInfo.finalBossBody.size.height * 1.35,
+            y: monstersInfo.finalBossBody.location.y - gameHeight * 0.55,
         },
         size: {
             width: diagonalLength * 0.125,
@@ -864,7 +879,7 @@ let oldMan, oldManContainer;
 let strikePig, strikePigStrike, strikePigSmoke;
 let bugBoss, bugBossExclamationMark, littleBug, bugBossStrike;
 let finalBossBody, finalBossRightArm, finalBossLeftArm, finalBossLeftSword, finalBossRightSword;
-let house, bugBossSeat, buddaStatus, stone;
+let house, bugBossSeat, buddaStatus, stone, portal;
 let healthText, energyText;
 
 // Audio
@@ -903,9 +918,8 @@ function askForInit() {
     }
 }
 
-// Initialize the game
 async function init() {
-    console.log("%c Game started!", "color: lightblue; font-size: 24px;");
+    // Initialize the game
     try {
         app.stage.children.forEach((child) => {
             child.destroy();
@@ -937,7 +951,7 @@ async function init() {
     monsterAttacks.length = 0;
     supportingObjects.length = 0;
 
-    playerIsRegenrating = false;
+    playerIsRegenarating = false;
     playerBiome = 'bugBoss';
     canvasOffsetDistance = 0;
     hideDialogue();
@@ -957,8 +971,10 @@ async function init() {
     app.ticker.maxFPS = 60;
 
     // Play the background music (BGM)
+    battleMusic.currentTime = 0;
     battleMusic.play();
     battleMusic.volume = 1;
+    ambientMusic.currentTime = 0;
     ambientMusic.volume = 1;
 
     // Must add the background image first otherwise the other images will be covered by the background image
@@ -1078,6 +1094,8 @@ async function init() {
     buddaStatus = createElement(false, buddaStatus, supportingObjectsInfo.buddaStatus.size, supportingObjectsInfo.buddaStatus.location, 0.5, true, './src/image/others/budda_status.png', supportingObjectsInfo.buddaStatus);
     supportingObjects.push(buddaStatus);
 
+    portal = createElement(false, portal, symbolsInfo.portal.size, symbolsInfo.portal.location, 0.5, true, './src/image/others/portal.png', symbolsInfo.portal);
+
     createFinalBossTexture();
     finalBossLeftArm = createElement(
         false,
@@ -1193,15 +1211,19 @@ async function init() {
     energyText.label = "energyBar";
     app.stage.addChild(energyText);
 
-    // Teleport the player to the forest
-    if (playerBiome === "bugBoss" && !unlockedAbilities.includes("Chi") && playerDeathNum >= 1 && !biomePlayerHasVisited.includes("forest")) {
+    checkPlayerRespawn();
+}
+
+async function checkPlayerRespawn() {
+    if (playerBiome === "bugBoss" && playerDeathNum >= 1 && !unlockedAbilities.includes("Chi") && !biomePlayerHasVisited.includes("forest")) {
         await canvasFadeOut(2000);
-        canvasFadeIn(2000);
         transitionToDungeon();
     } else if (playerDeathNum > 1 && biomePlayerHasVisited.includes("forest")) {
         await canvasFadeOut(2000);
-        canvasFadeIn(2000);
         transitionToForest();
+    } else if (unlockedAbilities.includes("Chi") && playerDeathNum > 1 && biomePlayerHasVisited.includes("forest")) {
+        await canvasFadeOut(2000);
+        transitionToFinalBoss();
     }
 }
 
@@ -1264,9 +1286,10 @@ async function transitionToForest() {
     playerBiome = "forest";
     updateCanvas(app.screen.width + Math.abs(canvasOffsetDistance), "teleport");
     updateMinFloorHeight(gameHeight * 6 / 7);
+    console.log(canvasOffsetDistance);
 
+    battleMusic.currentTime = 0;
     battleMusic.pause();
-    ambientMusic.currentTime = 0;
     ambientMusic.play();
 
     oldMan.x = app.screen.width * 1.5 + gameWidth * 0.1;
@@ -1286,10 +1309,11 @@ async function transitionToForest() {
 
 async function transitionToDungeon() {
     allowPlayerMoveOutOfScreen = false;
-    player.x = -app.screen.width * 0.5 + Math.abs(canvasOffsetDistance);
+    player.x = -app.screen.width * 0.5 + canvasOffsetDistance;
     playerBiome = "dungeon";
-    updateCanvas(-app.screen.width + Math.abs(canvasOffsetDistance), "teleport");
+    updateCanvas(-app.screen.width + canvasOffsetDistance, "teleport");
     updateMinFloorHeight(gameHeight * 6 / 7);
+    console.log(canvasOffsetDistance);
 
     BGMs.forEach((audio) => {
         if (audio !== ambientMusic) {
@@ -1318,9 +1342,9 @@ async function transitionToFinalBoss() {
     updateMinFloorHeight(gameHeight * 5.5 / 7);
     allowPlayerMoveOutOfScreen = false;
 
-    player.x = -app.screen.width * 1.5 + Math.abs(canvasOffsetDistance);
+    player.x = -app.screen.width * 1.5 - canvasOffsetDistance;
     playerBiome = "finalBoss";
-    updateCanvas(-app.screen.width * 2 + Math.abs(canvasOffsetDistance), "teleport");
+    updateCanvas(-app.screen.width * 2 - canvasOffsetDistance, "teleport");
     biomePlayerHasVisited.push("finalBoss");
 }
 
@@ -1345,8 +1369,8 @@ async function playIntro() {
         }
     );
     skipButton.anchor.set(0.5);
-    skipButton.x = app.screen.width - gameWidth * 0.05;
-    skipButton.y = app.screen.height - gameHeight * 0.05;
+    skipButton.x = app.screen.width - 25 - skipButton.width / 2;
+    skipButton.y = app.screen.height - 25 - skipButton.height / 2;
     skipButton.interactive = true;
     skipButton.buttonMode = true;
     skipButton.zIndex = 101;
@@ -1406,10 +1430,10 @@ function showCaption(text) {
 
         const caption = new PIXI.Text(text, {
             fontFamily: 'Caveat',
-            fontSize: 24,
+            fontSize: 34,
             fill: 'white',
             wordWrap: true,
-            wordWrapWidth: app.screen.width * 0.8,
+            wordWrapWidth: app.screen.width * 0.85,
             align: 'center',
         });
         caption.anchor.set(0.5);
@@ -1520,7 +1544,10 @@ function unlockAbilityShow(ability, descriptions, imgSrc) {
         document.getElementById("abilityDescription").innerHTML = descriptions.description;
         document.getElementById("abilityImg").src = imgSrc;
         document.getElementById("unlockAbility").classList.add('unlock-ability-show');
-        document.getElementById("instructionContent").innerHTML += "<br><p>" + descriptions.instruction + "</p>";
+
+        if (descriptions.instruction) {
+            document.getElementById("instructionContent").innerHTML += "<br><p>" + descriptions.instruction + "</p>";
+        }
 
         unlockAbilitySound.play();
         const hideUnlockAbilityKeydown = (e) => {
@@ -1749,27 +1776,28 @@ function playerSwordAttack(e) {
     playerIsSwordAttacking = true;
 }
 
-function playerSprint() {
-    if (playerIsSprinting || !charactersInfo.player.alive) {
+function playerRide() {
+    if (playerIsRiding || !charactersInfo.player.alive) {
         return;
     }
 
-    console.log("Player is sprinting");
-    playerIsSprinting = true;
-    playerSprintCooldown = 600; // Reset the sprint cooldown
+    playerIsRiding = true;
+    playerRideCooldown = 600; // Reset the sprint cooldown
     playerSummonHorseSound.currentTime = 0;
     playerSummonHorseSound.play();
 
     horse = new PIXI.AnimatedSprite(charactersInfo.horse.texture.walkRight);
-    horse.animationSpeed = 0.15;
-    horse.play();
-
     horse.anchor.set(0.5);
     horse.width = charactersInfo.horse.size.width;
     horse.height = charactersInfo.horse.size.height;
     horse.x = player.x;
     horse.y = player.y;
     horse.zIndex = 2;
+    horse.animationSpeed = 0.15;
+    horse.loop = true;
+    if (!horse.playing) {
+        horse.play();
+    }
     app.stage.addChild(horse);
 
     charactersInfo.player.speed *= 2;
@@ -2701,7 +2729,7 @@ function elementDamaged(element, dmg) {
     intervalsAndTimeouts.push(playerDamagedInterval);
 }
 
-function elementDied(element) {
+async function elementDied(element) {
     console.log(element.label.name + " is dead");
     element.label.alive = false;
     element.label.status.health = 0;
@@ -2716,13 +2744,6 @@ function elementDied(element) {
         element.textures = element.label.texture.died;
 
         setTimeout(async () => {
-            if (element.label.name === "strikePig") {
-                await unlockAbilityShow("Ride horse", {
-                    description: "Press <kbd>C</kbd> to ride a horse, has a 10 seconds cooldown. <br>When riding, the player moves twice as fast.",
-                    instruction: "Press <kbd>C</kbd> to ride a horse",
-                }, "./src/image/player/player_ride.gif");
-            }
-
             try {
                 element.label.container.destroy();
                 element.label.container = null;
@@ -2744,6 +2765,23 @@ function elementDied(element) {
     element.label.dieSound.play();
 
     // Check if the player has killed special monsters that unlock abilities
+    if (element.label.name === "strikePig") {
+        await unlockAbilityShow("Ride horse", {
+            description: "Press <kbd>C</kbd> to ride a horse, has a 10 seconds cooldown. <br>When riding, the player moves twice as fast.",
+            instruction: "Press <kbd>C</kbd> to ride a horse",
+        }, "./src/image/player/player_ride.gif");
+
+        await unlockAbilityShow("Extra health", {
+            description: "You gain an extra 250 health points.",
+            instruction: false,
+        }, "./src/image/player/player_extra_health.png");
+        charactersInfo.player.status.maxHealth += 250;
+        charactersInfo.player.status.health = charactersInfo.player.status.maxHealth;
+        healthText.text = 'Health: ' + charactersInfo.player.status.health;
+
+        console.log(charactersInfo.player.status);
+    }
+
     if (element.label.name === "bugBoss") {
         setTimeout(() => {
             unlockAbilityShow("Roll", {
@@ -2896,9 +2934,9 @@ async function gameLoop(delta = 1) {
     }
 
     try {
-        if (!playerIsRegenrating) {
+        if (!playerIsRegenarating) {
             playerRegenerationInterval = setInterval(playerRegeneration, 1000);
-            playerIsRegenrating = true;
+            playerIsRegenarating = true;
             intervalsAndTimeouts.push(playerRegenerationInterval);
         }
     }
@@ -3126,7 +3164,7 @@ async function gameLoop(delta = 1) {
                     finalBossRightArmAlreadyAttacked = false;
                     finalBossLeftArmAlreadyAttacked = false;
                 }
-            } 
+            }
         }
     }
 
@@ -3179,25 +3217,56 @@ async function gameLoop(delta = 1) {
         oldMan.label.movingDirection = "down";
     }
 
+    // The portal will fade in and out
+    if (playerBiome === 'forest') {
+        if (checkCollision(player, portal) === "right" || checkCollision(player, portal) === "left") {
+            transitionToFinalBoss();
+        } else {
+            if (portal.label.fadingOut) {
+                portal.alpha -= 0.0075;
+                if (portal.alpha <= 0.5) {
+                    portal.alpha = 0.5; 
+                    portal.label.fadingOut = false; 
+                }
+            } else {
+                portal.alpha += 0.0075;
+                if (portal.alpha >= 1) {
+                    portal.alpha = 1; 
+                    portal.label.fadingOut = true; 
+                }
+            }
+        }
+    }
+
     // Check key press
     // During boss fight, player cannot move out of the screen
     let isMoving = false;
-    if (playerIsSprinting && playerSprintDuration > 0) {
+    if (playerIsRiding && playerRideDuration > 0) {
         horse.visible = true;
         horse.x = player.x;
-        if (player.textures === charactersInfo.player.texture.faceRight || player.textures === charactersInfo.player.texture.walkRight) {
+        horse.y = player.y;
+        if (player.textures === charactersInfo.player.texture.walkRight) {
+            console.log("Player is walking right");
             horse.textures = charactersInfo.horse.texture.walkRight;
             horse.x += 15;
-        } else if (player.textures === charactersInfo.player.texture.faceLeft || player.textures === charactersInfo.player.texture.walkLeft) {
+            if (!horse.playing) {
+                horse.play();
+            }
+        } else if (player.textures === charactersInfo.player.texture.walkLeft) {
+            console.log("Player is walking left");
             horse.textures = charactersInfo.horse.texture.walkLeft;
             horse.x -= 15;
+            if (!horse.playing) {
+                horse.play();
+            }
         }
-        horse.y = player.y;
-        playerSprintDuration--;
-    } else if (playerSprintDuration <= 0) {
+        
+        playerRideDuration--;
+    } else if (playerRideDuration <= 0) {
         // Stop sprinting
-        playerIsSprinting = false;
-        playerSprintDuration = 300;
+        horse.stop();
+        playerIsRiding = false;
+        playerRideDuration = 300;
         charactersInfo.player.speed /= 2;
 
         for (let i = 1; i > 0; i -= 0.01) {
@@ -3210,8 +3279,8 @@ async function gameLoop(delta = 1) {
             horse.destroy();
             app.stage.removeChild(horse);
         }, 1000);
-    } else if (playerSprintCooldown > 0) {
-        playerSprintCooldown--;
+    } else if (playerRideCooldown > 0) {
+        playerRideCooldown--;
     }
 
     if (key['a'] || key["ArrowLeft"]) {
@@ -3297,8 +3366,8 @@ async function gameLoop(delta = 1) {
     }
 
     // Abilities key press
-    if (key['c'] && unlockedAbilities.includes("Sprint") && playerSprintCooldown <= 0) {
-        playerSprint();
+    if (key['c'] && unlockedAbilities.includes("Ride horse") && playerRideCooldown <= 0) {
+        playerRide();
     }
 
     if (key['f'] && unlockedAbilities.includes("Chi attack")) {
@@ -3313,9 +3382,15 @@ async function gameLoop(delta = 1) {
     if (!isMoving) {
         if (player.textures === charactersInfo.player.texture.walkLeft) {
             player.textures = charactersInfo.player.texture.faceLeft;
+            if (playerIsRiding) {
+                horse.textures = charactersInfo.horse.texture.faceLeft;
+            }
         }
         else if (player.textures === charactersInfo.player.texture.walkRight) {
             player.textures = charactersInfo.player.texture.faceRight;
+            if (playerIsRiding) {
+                horse.textures = charactersInfo.horse.texture.faceRight;
+            }
         }
     }
 

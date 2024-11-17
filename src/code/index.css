@@ -1,12 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap');
-
 @font-face {
     font-family: 'Arcade';
     src: url('../font/Arcade.ttf');
 }
+
 @font-face {
     font-family: 'Caveat';
     src: url('../font/Caveat.ttf');
+}
+
+@font-face {
+    font-family: 'Edu';
+    src: url('../font/Edu.ttf');
+}
+
+@font-face {
+    font-family: 'Sour';
+    src: url('../font/Sour.ttf');
 }
 
 *::before,
@@ -30,7 +39,7 @@ body {
 }
 
 body #title {
-    font-family: 'Geist Mono', sans-serif;
+    font-family: 'Sour';
 }
 
 #githubIcon {
@@ -84,6 +93,7 @@ canvas {
     justify-content: center;
     align-items: center;
     position: relative;
+    font-family: 'Arcade';
     animation-duration: 3s;
 }
 
@@ -91,9 +101,11 @@ canvas {
     0% {
         color: blue;
     }
+
     50% {
         color: gold;
     }
+
     100% {
         color: blue;
     }
