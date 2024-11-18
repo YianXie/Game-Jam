@@ -9,6 +9,11 @@
 }
 
 @font-face {
+    font-family: 'Li';
+    src: url('../font/Li.ttf');
+}
+
+@font-face {
     font-family: 'Edu';
     src: url('../font/Edu.ttf');
 }
@@ -38,8 +43,24 @@ body {
     font-family: sans-serif;
 }
 
-body #title {
-    font-family: 'Sour';
+body .headings {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    font-family: 'Li';
+}
+
+body .headings h1 {
+    padding: 0;
+    margin: 0;
+}
+
+body .headings small {
+    padding: 0;
+    margin: 0;
 }
 
 #githubIcon {
@@ -95,6 +116,15 @@ canvas {
     position: relative;
     font-family: 'Arcade';
     animation-duration: 3s;
+}
+
+.instruction-link #openInstruction {
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.instruction-link #openInstruction:hover {
+    text-decoration: underline;
 }
 
 @keyframes instruction-highlight-aniamtion {
@@ -335,6 +365,12 @@ canvas {
 
 #caveatFont {
     font-family: 'Caveat';
+    font-size: 0px;
+    visibility: hidden;
+}
+
+#liFont {
+    font-family: 'Li';
     font-size: 0px;
     visibility: hidden;
 }
