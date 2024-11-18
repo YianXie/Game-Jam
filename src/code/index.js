@@ -32,12 +32,22 @@ const introCaptions = {
         { time: 79, text: "But here I am, in a safe cave, miles from the war, no one is here, and I will return to my family in a short while." },
         { time: 89, text: "Wait, it seems like there is something else here..." },
     ],
-    scene2: []
+    scene2: [],
 };
+const endingCaptions = [
+    { time: 7, text: "Finally, I am here. I could see my family again! I have been waiting for so long!" },
+    { time: 12, text: "What is it? What happened?!" },
+    { time: 17, text: "What? No!! I am here, I am back!" },
+    { time: 21, text: "Noooo, nooo!!!!" },
+    { time: 24, text: "Why? Why! What did I do to deserve this?" },
+    { time: 32, text: "Sir! We have been together for so long! Can you save my wife?" },
+    { time: 38, text: "Here I am… hahahahaha" },
+];
 let currentBackgroundPosition = {
     minX: 0,
     maxX: 0,
 };
+let currentlyPlaying = "intro";
 let alreadyPlayedIntro = false;
 let gamePaused = false;
 let playerDeathNum = 0;
@@ -55,16 +65,16 @@ let coverBackground;
 let minFloorHeight = gameHeight * 6 / 7;
 let playerIsSwordAttacking = false;
 let playerIsRiding = false;
-let playerRideCooldown = 600; // 10 seconds, 60fps per second
-let playerRideDuration = 300; // 5 seconds, 60fps per second
+let playerRideCooldown = 600;
+let playerRideDuration = 300;
 let playerIsChiAttacking = false;
 let playerRollInfo = { isRolling: false, direction: "" };
-let playerRollCoolDown = 30; // 0.5 second, 60fps per second
+let playerRollCoolDown = 30;
 let checkInstructionAlertAlready = false;
 let dialogueReminderAlready = false;
 let finalBossLeftArmAlreadyAttacked = false;
 let finalBossRightArmAlreadyAttacked = false;
-let endingAlreadyShowed = false;
+let alreadtShowedGameEnd = false;
 let BGMs = [];
 let unlockedAbilities = [];
 let key = {};
@@ -165,6 +175,8 @@ const buddaStatusTexture = await PIXI.Assets.load('./src/image/others/budda_stat
 const stoneTexture = await PIXI.Assets.load('./src/image/others/stone.png');
 const houseTexture = await PIXI.Assets.load('./src/image/others/house.png');
 const portalTexture = await PIXI.Assets.load('./src/image/others/portal.png');
+const yinYangTexture = await PIXI.Assets.load('./src/image/others/yin_yang.png');
+const coverSwordTexture = await PIXI.Assets.load('./src/image/others/cover_sword.png');
 
 // The start page
 const startPageContainer = new PIXI.Container();
@@ -176,26 +188,56 @@ startPageBackground.width = app.screen.width;
 startPageBackground.height = app.screen.height;
 startPageContainer.addChild(startPageBackground);
 
-const nonHoverColor = 'rgba(255, 255, 255, 0.3)';
-const hoverColor = 'rgba(255, 255, 255, 0.8)';
+const coverSword = PIXI.Sprite.from('./src/image/others/cover_sword.png');
+coverSword.anchor = 0.5;
+coverSword.x = app.screen.width / 2;
+coverSword.y = app.screen.height / 2 - gameHeight * 0.025;
+coverSword.scale = new PIXI.Point(0.35, 0.45);
+coverSword.rotation = Math.PI;
+startPageContainer.addChild(coverSword);
+
+const yinYang = PIXI.Sprite.from('./src/image/others/yin_yang.png');
+yinYang.anchor = 0.5;
+yinYang.x = app.screen.width / 2;
+yinYang.y = app.screen.height / 2;
+yinYang.width = diagonalLength * 0.25;
+yinYang.height = diagonalLength * 0.25;
+startPageContainer.addChild(yinYang);
+app.ticker.add(() => {
+    yinYang.rotation += 0.0025;
+    coverSword.rotation -= 0.0025;
+});
+
+const mainTitle = new PIXI.Text(
+    "阴阳",
+    {
+        fontFamily: 'Li',
+        fontSize: 80,
+        fill: 'white',
+    }
+)
+mainTitle.anchor.set(0.5);
+mainTitle.x = app.screen.width / 2;
+mainTitle.y = 15 + mainTitle.height / 2;
+startPageContainer.addChild(mainTitle);
+
+const subTitle = new PIXI.Text(
+    "Yin Yang",
+    {
+        fontFamily: 'Li',
+        fontSize: 35,
+        fill: 'white',
+    }
+)
+subTitle.anchor.set(0.5);
+subTitle.x = app.screen.width / 2;
+subTitle.y = mainTitle.y + mainTitle.height / 2 + subTitle.height / 2;
+startPageContainer.addChild(subTitle);
+
+const nonHoverColor = 'rgba(189, 183, 183, 0.3)';
+const hoverColor = 'rgba(189, 183, 183, 0.8)';
 const startButton = new PIXI.Graphics();
 startPageContainer.addChild(startButton);
-
-let startPagePlayer = PIXI.Sprite.from('./src/image/player/player_face_right.png');
-startPagePlayer.anchor.set(0.5);
-startPagePlayer.x = app.screen.width / 4 - diagonalLength * 0.05;
-startPagePlayer.y = app.screen.height / 2;
-startPagePlayer.width = diagonalLength * 0.2;
-startPagePlayer.height = diagonalLength * 0.2;
-startPageContainer.addChild(startPagePlayer);
-
-let startPageStrikePig = PIXI.Sprite.from('./src/image/monsters/strike_pig/strike_pig_face_left.png');
-startPageStrikePig.anchor.set(0.5);
-startPageStrikePig.x = app.screen.width * 3 / 4 + diagonalLength * 0.0625;
-startPageStrikePig.y = app.screen.height / 2;
-startPageStrikePig.width = diagonalLength * 0.25;
-startPageStrikePig.height = diagonalLength * 0.25;
-startPageContainer.addChild(startPageStrikePig);
 
 const startButtonText = new PIXI.Text(
     'Start',
@@ -254,6 +296,7 @@ startButton.on('pointerdown', function () {
 startButtonText.on('pointerdown', function () {
     askForInit();
 });
+
 app.stage.addChild(startPageContainer);
 
 // The information of the entities
@@ -384,7 +427,7 @@ const charactersInfo = {
         },
         texture: {},
     },
-    reset: function() {
+    reset: function () {
         this.player.status.health = this.player.status.maxHealth;
         this.player.status.energy = this.player.status.maxEnergy;
         this.player.status.shield = false;
@@ -916,25 +959,26 @@ let finalBossBody, finalBossRightArm, finalBossLeftArm, finalBossLeftSword, fina
 let house, bugBossSeat, buddaStatus, stone, portal;
 let healthText, energyText;
 
-// Audio
-const ambientMusic = new Audio('./src/audio/BGM/ambient.mp3'); // BGM by Rick
+// BGM (all made by Rick)
+const ambientMusic = new Audio('./src/audio/BGM/ambient.mp3');
 ambientMusic.loop = true;
 BGMs.push(ambientMusic);
-const battleMusic = new Audio('./src/audio/BGM/battle.mp3'); // BGM by Rick
+const battleMusic = new Audio('./src/audio/BGM/battle.mp3');
 battleMusic.loop = true;
 BGMs.push(battleMusic);
 const finalBossMusic = new Audio('./src/audio/BGM/final_boss.mp3');
 finalBossMusic.loop = true;
 BGMs.push(finalBossMusic);
 
-const introScene1 = new Audio('./src/audio/intro/scene_1.mp3');
+// Sound effects
+const introAudio = new Audio('./src/audio/plot/intro.mp3');
+const endingAudio = new Audio('./src/audio/plot/ending.mp3');
 const freeSwordSound = new Audio('./src/audio/player/free_sword.mp3');
 const unlockAbilitySound = new Audio('./src/audio/player/unlock_ability.mp3');
 const playerChiAttackSound = new Audio('./src/audio/player/player_chi_attack.mp3');
 const playerRollSound = new Audio('./src/audio/player/player_roll.mp3');
 const playerRollReadySound = new Audio('./src/audio/player/roll_ready.mp3');
 const characterStartSpeaking = [
-    // This not only includes the player, but also other characters
     new Audio('./src/audio/player/character_start_speaking_1.mp3'),
     new Audio('./src/audio/player/character_start_speaking_2.mp3'),
     new Audio('./src/audio/player/character_start_speaking_3.mp3'),
@@ -1002,7 +1046,7 @@ async function init() {
     document.querySelector("#gameDiv").addEventListener('mousedown', mouseDown);
     document.querySelector("#gameDiv").addEventListener('mouseup', mouseUp);
     app.ticker.add(gameLoop);
-    app.ticker.maxFPS = 60;
+    app.ticker.maxFPS = 60; // Set the maximum FPS to 60 so that even with a 120Hz monitor, the game will still run at 60FPS
 
     // Play the background music (BGM)
     battleMusic.currentTime = 0;
@@ -1167,7 +1211,7 @@ async function init() {
         finalBossLeftSword,
         attacksInfo.finalBossSword.size,
         {
-            x: finalBossLeftArm.x, // Initial position aligned with arm
+            x: finalBossLeftArm.x,
             y: finalBossLeftArm.y - symbolsInfo.finalBossArms.size.height
         },
         0.5,
@@ -1398,11 +1442,6 @@ async function transitionToForestHouse() {
     playAudio(ambientMusic);
 }
 
-async function showGameEnding() {
-    charactersInfo.player.speed = 0;
-    await canvasFadeOut(1500);
-}
-
 function playAudio(audio) {
     BGMs.forEach((bgm) => {
         if (bgm !== audio) {
@@ -1423,8 +1462,14 @@ function updateMinFloorHeight(value) {
 }
 
 async function playIntro() {
+    if (alreadyPlayedIntro || currentlyPlaying !== 'intro') {
+        return;
+    }
+
+    alreadyPlayedIntro = true;
+    currentlyPlaying = 'intro';
     await canvasFadeOut(1000);
-    introScene1.play();
+    introAudio.play();
 
     const skipButton = new PIXI.Text(
         "Skip",
@@ -1442,11 +1487,10 @@ async function playIntro() {
     skipButton.zIndex = 101;
     skipButton.cursor = 'pointer';
     skipButton.on('pointerdown', async () => {
-        introScene1.pause();
+        introAudio.pause();
         skipButton.destroy();
         app.stage.removeChild(skipButton);
 
-        alreadyPlayedIntro = true;
         await hideCaption();
         await canvasFadeIn(1000);
         init();
@@ -1479,21 +1523,49 @@ async function playIntro() {
 
             skipButton.destroy();
             app.stage.removeChild(skipButton);
-            alreadyPlayedIntro = true;
             init();
+        }
+    }
+}
 
-            return;
+async function playEnding() {
+    if (alreadtShowedGameEnd || currentlyPlaying !== 'gameEnd') {
+        return;
+    }
+
+    alreadtShowedGameEnd = true;
+    charactersInfo.player.speed = 0;
+    document.removeEventListener('keydown', keysDown);
+    document.removeEventListener('keyup', keysUp);
+    document.querySelector("#gameDiv").removeEventListener('mousedown', mouseDown);
+    document.querySelector("#gameDiv").removeEventListener('mouseup', mouseUp);
+    BGMs.forEach((bgm) => {
+        bgm.pause();
+    });
+
+    await canvasFadeOut(1500);
+    endingAudio.play();
+    for (let i = 0; i < endingCaptions.length; i++) {
+        const currentCaption = endingCaptions[i];
+        const nextCaptionTime = endingCaptions[i + 1] ? endingCaptions[i + 1].time : null;
+
+        if (nextCaptionTime) {
+            const delay = (nextCaptionTime - currentCaption.time) * 1000;
+            await showCaption(currentCaption.text);
+            await sleep(delay);
+            await hideCaption();
+        } else {
+            // The last caption
+            await showCaption(currentCaption.text);
+            await sleep(5000);
+            await hideCaption();
+            await canvasFadeIn(1000);
         }
     }
 }
 
 function showCaption(text) {
     return new Promise((resolve) => {
-        if (alreadyPlayedIntro) {
-            resolve();
-            return;
-        }
-
         const caption = new PIXI.Text(text, {
             fontFamily: 'Caveat',
             fontSize: 34,
@@ -1509,6 +1581,8 @@ function showCaption(text) {
         caption.alpha = 0;
         caption.label = "caption";
         app.stage.addChild(caption);
+
+        // Fade in the caption
         for (let i = 0; i < 1; i += 0.01) {
             setTimeout(() => {
                 caption.alpha = i;
@@ -1532,6 +1606,8 @@ function hideCaption() {
                     app.stage.removeChild(child);
                     resolve();
                 }, 1000);
+
+                return;
             }
         });
     });
@@ -3321,47 +3397,44 @@ async function gameLoop(delta = 1) {
             if (portal.label.fadingOut) {
                 portal.alpha -= 0.0075;
                 if (portal.alpha <= 0.5) {
-                    portal.alpha = 0.5; 
-                    portal.label.fadingOut = false; 
+                    portal.alpha = 0.5;
+                    portal.label.fadingOut = false;
                 }
             } else {
                 portal.alpha += 0.0075;
                 if (portal.alpha >= 1) {
-                    portal.alpha = 1; 
-                    portal.label.fadingOut = true; 
+                    portal.alpha = 1;
+                    portal.label.fadingOut = true;
                 }
             }
         }
     }
 
     if (playerBiome === "forestHouse") {
-        if (checkCollision(player, house) === 'left' || checkCollision(player, house) === 'right') {
-            console.log("Collide");
+        if ((checkCollision(player, house) === 'left' || checkCollision(player, house) === 'right') && !alreadtShowedGameEnd) {
+            currentlyPlaying = "gameEnd";
+            playEnding();
         }
     }
 
     // Check key press
     // During boss fight, player cannot move out of the screen
-    let isMoving = false;
+    let playerIsMoving = false;
     if (playerIsRiding && playerRideDuration > 0) {
         horse.visible = true;
+        horse.loop = true;
         horse.x = player.x;
         horse.y = player.y;
-        if (player.textures === charactersInfo.player.texture.walkRight) {
-            horse.textures = charactersInfo.horse.texture.walkRight;
-            console.log();
-            horse.x += 15;
-            if (!horse.playing) {
-                horse.play();
-            }
-        } else if (player.textures === charactersInfo.player.texture.walkLeft) {
-            horse.textures = charactersInfo.horse.texture.walkLeft;
-            horse.x -= 15;
-            if (!horse.playing) {
-                horse.play();
-            }
+        if (!horse.playing) {
+            horse.play();
         }
-        
+
+        if (player.textures === charactersInfo.player.texture.walkRight) {
+            horse.x += 15;
+        } else if (player.textures === charactersInfo.player.texture.walkLeft) {
+            horse.x -= 15;
+        }
+
         playerRideDuration--;
     } else if (playerRideDuration <= 0) {
         // Stop sprinting
@@ -3397,14 +3470,13 @@ async function gameLoop(delta = 1) {
                 charactersInfo.player.isBlocked.right = true;
             }
         }
-
         if (!player.playing) {
             player.textures = charactersInfo.player.texture.walkLeft;
             player.play();
         }
         if (!charactersInfo.player.isBlocked.left) {
             player.x -= charactersInfo.player.speed;
-            isMoving = true;
+            playerIsMoving = true;
             updateCanvas(-charactersInfo.player.speed);
         }
     }
@@ -3421,14 +3493,13 @@ async function gameLoop(delta = 1) {
                 charactersInfo.player.isBlocked.right = true;
             }
         }
-
         if (!player.playing) {
             player.textures = charactersInfo.player.texture.walkRight;
             player.play();
         }
         if (!charactersInfo.player.isBlocked.right) {
             player.x += charactersInfo.player.speed;
-            isMoving = true;
+            playerIsMoving = true;
             updateCanvas(charactersInfo.player.speed);
         }
     }
@@ -3484,17 +3555,17 @@ async function gameLoop(delta = 1) {
     }
 
     // Change the player texture to face left or right when the player is not moving
-    if (!isMoving) {
+    if (!playerIsMoving) {
         if (player.textures === charactersInfo.player.texture.walkLeft) {
             player.textures = charactersInfo.player.texture.faceLeft;
             if (playerIsRiding) {
-                horse.textures = charactersInfo.horse.texture.faceLeft;
+                horse.textures = charactersInfo.horse.texture.walkLeft;
             }
         }
         else if (player.textures === charactersInfo.player.texture.walkRight) {
             player.textures = charactersInfo.player.texture.faceRight;
             if (playerIsRiding) {
-                horse.textures = charactersInfo.horse.texture.faceRight;
+                horse.textures = charactersInfo.horse.texture.walkRight;
             }
         }
     }
