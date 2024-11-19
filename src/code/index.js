@@ -36,18 +36,17 @@ const introCaptions = {
 };
 const endingCaptions = [
     { time: 7, text: "Finally, I am here. I could see my family again! I have been waiting for so long!" },
-    { time: 12, text: "What is it? What happened?!" },
+    { time: 14, text: "What is it? What happened?!" },
     { time: 17, text: "What? No!! I am here, I am back!" },
     { time: 21, text: "Noooo, nooo!!!!" },
-    { time: 24, text: "Why? Why! What did I do to deserve this?" },
-    { time: 32, text: "Sir! We have been together for so long! Can you save my wife?" },
-    { time: 38, text: "Here I am… hahahahaha" },
+    { time: 22.5, text: "Why? Why! What did I do to deserve this?" },
+    { time: 26.5, text: "Sir! We have been together for so long! Can you save my wife?" },
+    { time: 30.5, text: "Here I am… hahahahaha" },
 ];
 let currentBackgroundPosition = {
     minX: 0,
     maxX: 0,
 };
-let currentlyPlaying = "intro";
 let alreadyPlayedIntro = false;
 let gamePaused = false;
 let playerDeathNum = 0;
@@ -1041,6 +1040,12 @@ async function init() {
     // Add the event listeners and the game loop
     playerIsClickingButton = false;
     isStartingGame = false;
+    document.addEventListener('keydown', (e) => {
+        // Prevent the website from scrolling down when pressing space bar
+        if (e.key === ' ') {
+            e.preventDefault();
+        }
+    })
     document.addEventListener('keydown', keysDown);
     document.addEventListener('keyup', keysUp);
     document.querySelector("#gameDiv").addEventListener('mousedown', mouseDown);
@@ -1462,106 +1467,175 @@ function updateMinFloorHeight(value) {
 }
 
 async function playIntro() {
-    if (alreadyPlayedIntro || currentlyPlaying !== 'intro') {
-        return;
-    }
-
-    alreadyPlayedIntro = true;
-    currentlyPlaying = 'intro';
-    await canvasFadeOut(1000);
-    introAudio.play();
-
-    const skipButton = new PIXI.Text(
-        "Skip",
-        {
-            fontFamily: 'Arcade',
-            fontSize: 24,
-            fill: 'white',
+    return new Promise(async (resolve) => {
+        if (alreadyPlayedIntro) {
+            resolve();
+            return;
         }
-    );
-    skipButton.anchor.set(0.5);
-    skipButton.x = app.screen.width - 25 - skipButton.width / 2;
-    skipButton.y = app.screen.height - 25 - skipButton.height / 2;
-    skipButton.interactive = true;
-    skipButton.buttonMode = true;
-    skipButton.zIndex = 101;
-    skipButton.cursor = 'pointer';
-    skipButton.on('pointerdown', async () => {
-        introAudio.pause();
-        skipButton.destroy();
-        app.stage.removeChild(skipButton);
 
-        await hideCaption();
-        await canvasFadeIn(1000);
-        init();
+        await canvasFadeOut(1000);
+        introAudio.play();
 
-        return;
-    });
-    skipButton.on('mouseover', () => {
-        skipButton.style.fill = 'gray';
-    });
-    skipButton.on('mouseout', () => {
-        skipButton.style.fill = 'white';
-    });
-    app.stage.addChild(skipButton);
-
-    for (let i = 0; i < introCaptions.scene1.length; i++) {
-        const currentCaption = introCaptions.scene1[i];
-        const nextCaptionTime = introCaptions.scene1[i + 1] ? introCaptions.scene1[i + 1].time : null;
-
-        if (nextCaptionTime) {
-            const delay = (nextCaptionTime - currentCaption.time) * 1000;
-            await showCaption(currentCaption.text);
-            await sleep(delay);
-            await hideCaption();
-        } else {
-            // The last caption
-            await showCaption(currentCaption.text);
-            await sleep(4000);
-            await hideCaption();
-            await canvasFadeIn(1000);
-
+        const skipButton = new PIXI.Text(
+            "Skip",
+            {
+                fontFamily: 'Arcade',
+                fontSize: 24,
+                fill: 'white',
+            }
+        );
+        skipButton.anchor.set(0.5);
+        skipButton.x = app.screen.width - 25 - skipButton.width / 2;
+        skipButton.y = app.screen.height - 25 - skipButton.height / 2;
+        skipButton.interactive = true;
+        skipButton.buttonMode = true;
+        skipButton.zIndex = 101;
+        skipButton.cursor = 'pointer';
+        skipButton.on('pointerdown', async () => {
+            alreadyPlayedIntro = true;
             skipButton.destroy();
             app.stage.removeChild(skipButton);
-            init();
+
+            audioFadeOut(introAudio, 1000);
+            await hideCaption();
+            await canvasFadeIn(1000);
+            resolve();
+            return;
+        });
+        skipButton.on('mouseover', () => {
+            skipButton.style.fill = 'gray';
+        });
+        skipButton.on('mouseout', () => {
+            skipButton.style.fill = 'white';
+        });
+        app.stage.addChild(skipButton);
+
+        for (let i = 0; i < introCaptions.scene1.length; i++) {
+            if (alreadyPlayedIntro) {
+                break;
+            }
+
+            const currentCaption = introCaptions.scene1[i];
+            const nextCaptionTime = introCaptions.scene1[i + 1] ? introCaptions.scene1[i + 1].time : null;
+
+            if (nextCaptionTime) {
+                const delay = (nextCaptionTime - currentCaption.time) * 1000;
+                await showCaption(currentCaption.text);
+                await sleep(delay);
+                await hideCaption();
+            } else {
+                // The last caption
+                alreadyPlayedIntro = true;
+                await showCaption(currentCaption.text);
+                await sleep(4000);
+                await hideCaption();
+                await canvasFadeIn(1000);
+
+                skipButton.destroy();
+                app.stage.removeChild(skipButton);
+                resolve();
+                break;
+            }
         }
-    }
+    })
 }
 
 async function playEnding() {
-    if (alreadtShowedGameEnd || currentlyPlaying !== 'gameEnd') {
-        return;
-    }
-
-    alreadtShowedGameEnd = true;
-    charactersInfo.player.speed = 0;
-    document.removeEventListener('keydown', keysDown);
-    document.removeEventListener('keyup', keysUp);
-    document.querySelector("#gameDiv").removeEventListener('mousedown', mouseDown);
-    document.querySelector("#gameDiv").removeEventListener('mouseup', mouseUp);
-    BGMs.forEach((bgm) => {
-        bgm.pause();
-    });
-
-    await canvasFadeOut(1500);
-    endingAudio.play();
-    for (let i = 0; i < endingCaptions.length; i++) {
-        const currentCaption = endingCaptions[i];
-        const nextCaptionTime = endingCaptions[i + 1] ? endingCaptions[i + 1].time : null;
-
-        if (nextCaptionTime) {
-            const delay = (nextCaptionTime - currentCaption.time) * 1000;
-            await showCaption(currentCaption.text);
-            await sleep(delay);
-            await hideCaption();
-        } else {
-            // The last caption
-            await showCaption(currentCaption.text);
-            await sleep(5000);
-            await hideCaption();
-            await canvasFadeIn(1000);
+    return new Promise(async (resolve) => {
+        if (alreadtShowedGameEnd) {
+            resolve();
+            return;
         }
-    }
+
+        alreadtShowedGameEnd = true;
+        charactersInfo.player.speed = 0;
+        document.removeEventListener('keydown', keysDown);
+        document.removeEventListener('keyup', keysUp);
+        document.querySelector("#gameDiv").removeEventListener('mousedown', mouseDown);
+        document.querySelector("#gameDiv").removeEventListener('mouseup', mouseUp);
+        BGMs.forEach((bgm) => {
+            bgm.pause();
+        });
+
+        await canvasFadeOut(1500);
+        endingAudio.play();
+        for (let i = 0; i < endingCaptions.length; i++) {
+            const currentCaption = endingCaptions[i];
+            const nextCaptionTime = endingCaptions[i + 1] ? endingCaptions[i + 1].time : null;
+
+            if (nextCaptionTime) {
+                const delay = (nextCaptionTime - currentCaption.time) * 1000;
+                await showCaption(currentCaption.text);
+                await sleep(delay);
+                await hideCaption();
+            } else {
+                // The last caption
+                await showCaption(currentCaption.text);
+                await sleep(5000);
+                await hideCaption();
+
+                battleMusic.volume = 0
+                battleMusic.play();
+                audioFadeIn(battleMusic, 3000);
+                const endingContainer = new PIXI.Container();
+                const mainThankTitle = new PIXI.Text(
+                    "感谢游玩",
+                    {
+                        fontFamily: "Li",
+                        fontSize: 48,
+                        fill: "rgb(255, 255, 255)",
+                    }
+                )
+                mainThankTitle.anchor = 0.5;
+                mainThankTitle.x = app.screen.width / 2;
+                mainThankTitle.y = 20 + mainThankTitle.height / 2;
+                mainThankTitle.zIndex = 101;
+                endingContainer.addChild(mainThankTitle);
+
+                const subThankTitle = new PIXI.Text(
+                    "Thank you for playing!",
+                    {
+                        fontFamily: "Edu",
+                        fontSize: 32,
+                        fill: "rgb(255, 255, 255)",
+                    }
+                )
+                subThankTitle.anchor = 0.5;
+                subThankTitle.x = app.screen.width / 2;
+                subThankTitle.y = mainThankTitle.y + mainThankTitle.height / 2 + subThankTitle.height / 2;
+                subThankTitle.zIndex = 101;
+                endingContainer.addChild(subThankTitle);
+
+                const contributersList = new PIXI.Text(
+                    "Ian Xie - Code\r\nBarry Hang - Arts\r\nRick Yang - Music",
+                    {
+                        fontFamily: "Edu",
+                        fontSize: 30,
+                        fill: "rgb(255, 255, 255)",
+                        align: "center",
+                    }
+                )
+                contributersList.anchor = 0.5;
+                contributersList.x = app.screen.width / 2;
+                contributersList.y = app.screen.width / 2 - contributersList.height / 2;
+                contributersList.zIndex = 101;
+                endingContainer.addChild(contributersList);
+
+                endingContainer.zIndex = 101;
+                endingContainer.children.forEach((child) => {
+                    child.alpha = 0;
+                })
+                app.stage.addChild(endingContainer);
+                endingContainer.children.forEach((child) => {
+                    for (let i = 0; i < 1; i += 0.01) {
+                        setTimeout(() => {
+                            child.alpha = i
+                        }, i * 1000);
+                    }
+                })
+            }
+        }
+    })
 }
 
 function showCaption(text) {
@@ -1594,6 +1668,7 @@ function showCaption(text) {
 
 function hideCaption() {
     return new Promise((resolve) => {
+        let foundCaption = false;
         app.stage.children.forEach((child) => {
             if (child.label === "caption") {
                 for (let i = 1; i >= 0; i -= 0.01) {
@@ -1606,10 +1681,15 @@ function hideCaption() {
                     app.stage.removeChild(child);
                     resolve();
                 }, 1000);
+                foundCaption = true;
 
                 return;
             }
         });
+
+        if (!foundCaption) {
+            resolve();
+        }
     });
 }
 
@@ -1727,11 +1807,6 @@ function unlockAbilityHide() {
 
 function keysDown(e) {
     key[e.key] = true;
-
-    // Prevent the space key from scrolling the page
-    if (e.key === ' ') {
-        e.preventDefault();
-    }
 }
 
 function keysUp(e) {
@@ -3412,8 +3487,13 @@ async function gameLoop(delta = 1) {
 
     if (playerBiome === "forestHouse") {
         if ((checkCollision(player, house) === 'left' || checkCollision(player, house) === 'right') && !alreadtShowedGameEnd) {
-            currentlyPlaying = "gameEnd";
-            playEnding();
+            player.textures = charactersInfo.player.texture.faceRight;
+            for (let i = 1; i > 0; i -= 0.1) {
+                setTimeout(() => {
+                    player.alpha = i;
+                }, (1 - i) * 1000);
+            }
+            await playEnding();
         }
     }
 
