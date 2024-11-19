@@ -41,7 +41,6 @@ const endingCaptions = [
     { time: 21, text: "Noooo, nooo!!!!" },
     { time: 22.5, text: "Why? Why! What did I do to deserve this?" },
     { time: 26.5, text: "Sir! We have been together for so long! Can you save my wife?" },
-    { time: 30.5, text: "Here I am… hahahahaha" },
 ];
 let currentBackgroundPosition = {
     minX: 0,
@@ -61,7 +60,7 @@ let gameIsRunning = false;
 let allowPlayerMoveOutOfScreen = false;
 let currentDialogue = undefined;
 let coverBackground;
-let minFloorHeight = gameHeight * 6 / 7;
+let minFloorHeight = gameHeight * 5.5 / 7;
 let playerIsSwordAttacking = false;
 let playerIsRiding = false;
 let playerRideCooldown = 600;
@@ -108,8 +107,8 @@ const playerDamagedFaceLeft = await PIXI.Assets.load('./src/image/player/player_
 const oldManFaceRight = await PIXI.Assets.load('./src/image/characters/old_man_face_right.png');
 const oldManFaceLeft = await PIXI.Assets.load('./src/image/characters/old_man_face_left.png');
 
-const womanClosedEyes = await PIXI.Assets.load('./src/image/characters/woman_closed_eyes.png');
-// const womanOpenEyes = await PIXI.Assets.load('./src/image/characters/woman_open_eyes.png');
+const womanClosedEyes = await PIXI.Assets.load('./src/image/background/woman_close_eyes.png');
+const womanOpenEyes = await PIXI.Assets.load('./src/image/background/woman_open_eyes.png');
 
 const horseFaceLeft = await PIXI.Assets.load('./src/image/horse/horse_walk_left_1.png');
 const horseWalkLeft1 = await PIXI.Assets.load('./src/image/horse/horse_walk_left_1.png');
@@ -179,6 +178,7 @@ const coverSwordTexture = await PIXI.Assets.load('./src/image/others/cover_sword
 
 // The start page
 const startPageContainer = new PIXI.Container();
+
 let startPageBackground = PIXI.Sprite.from('./src/image/background/cg.png');
 startPageBackground.anchor.set(0.5);
 startPageBackground.x = app.screen.width / 2;
@@ -186,6 +186,14 @@ startPageBackground.y = app.screen.height / 2;
 startPageBackground.width = app.screen.width;
 startPageBackground.height = app.screen.height;
 startPageContainer.addChild(startPageBackground);
+
+const yinYang = PIXI.Sprite.from('./src/image/others/yin_yang.png');
+yinYang.anchor = 0.5;
+yinYang.x = app.screen.width / 2;
+yinYang.y = app.screen.height / 2;
+yinYang.width = diagonalLength * 0.25;
+yinYang.height = diagonalLength * 0.25;
+startPageContainer.addChild(yinYang);
 
 const coverSword = PIXI.Sprite.from('./src/image/others/cover_sword.png');
 coverSword.anchor = 0.5;
@@ -195,13 +203,6 @@ coverSword.scale = new PIXI.Point(0.35, 0.45);
 coverSword.rotation = Math.PI;
 startPageContainer.addChild(coverSword);
 
-const yinYang = PIXI.Sprite.from('./src/image/others/yin_yang.png');
-yinYang.anchor = 0.5;
-yinYang.x = app.screen.width / 2;
-yinYang.y = app.screen.height / 2;
-yinYang.width = diagonalLength * 0.25;
-yinYang.height = diagonalLength * 0.25;
-startPageContainer.addChild(yinYang);
 app.ticker.add(() => {
     yinYang.rotation += 0.0025;
     coverSword.rotation -= 0.0025;
@@ -319,8 +320,8 @@ const charactersInfo = {
             y: app.screen.height / 2,
         },
         status: {
-            health: 2500,
-            maxHealth: 2500,
+            health: 250,
+            maxHealth: 250,
             energy: 3,
             maxEnergy: 3,
             shield: false,
@@ -328,7 +329,7 @@ const charactersInfo = {
         attack: {
             sword: {
                 name: "sword",
-                damage: 100,
+                damage: 30,
                 rotation: 0,
                 direction: "right",
                 size: {
@@ -746,7 +747,7 @@ const supportingObjectsInfo = {
         name: "house",
         location: {
             x: gameWidth * 5 - diagonalLength * 0.2,
-            y: minFloorHeight - diagonalLength * 0.1,
+            y: gameHeight * 6 / 7 - diagonalLength * 0.1,
         },
         size: {
             width: diagonalLength * 0.4,
@@ -853,7 +854,7 @@ const attacksInfo = {
     },
     finalBossSword: {
         name: "finalBossSword",
-        damage: 75,
+        damage: 25,
         range: gameWidth * 0.25,
         speed: gameWidth * 0.015,
         direction: "right",
@@ -957,6 +958,7 @@ let bugBoss, bugBossExclamationMark, littleBug, bugBossStrike;
 let finalBossBody, finalBossRightArm, finalBossLeftArm, finalBossLeftSword, finalBossRightSword;
 let house, bugBossSeat, buddaStatus, stone, portal;
 let healthText, energyText;
+let womanBackground;
 
 // BGM (all made by Rick)
 const ambientMusic = new Audio('./src/audio/BGM/ambient.mp3');
@@ -1116,6 +1118,16 @@ async function init() {
     app.stage.addChild(finalBossBackground);
     backgrounds.push(finalBossBackground);
 
+    womanBackground = PIXI.Sprite.from('./src/image/background/woman_close_eyes.png');
+    womanBackground.anchor = 0.5;
+    womanBackground.x = gameWidth * 6;
+    womanBackground.y = gameHeight / 2;
+    womanBackground.width = gameWidth;
+    womanBackground.height = gameHeight;
+    womanBackground.label = "woman";
+    app.stage.addChild(womanBackground);
+    backgrounds.push(womanBackground);
+
     // Set up the entities
     // The order matters, the last element will be on top of the previous elements (图层顺序)
     createPlayerTexture();
@@ -1135,8 +1147,6 @@ async function init() {
     oldMan = createElement(false, oldMan, charactersInfo.oldMan.size, charactersInfo.oldMan.location, 0.5, true, './src/image/characters/old_man_face_left.png', charactersInfo.oldMan);
     oldManContainer.addChild(oldMan);
     app.stage.addChild(oldManContainer);
-
-    woman = createElement(false, woman, charactersInfo.woman.size, charactersInfo.woman.location, 0.5, true, './src/image/characters/woman_closed_eyes.png', charactersInfo.woman);
 
     createStrikePigTexure();
     strikePig = createMonster(
@@ -1441,10 +1451,25 @@ async function transitionToForestHouse() {
     playerBiome = "forestHouse";
 
     allowPlayerMoveOutOfScreen = false;
-    player.x = app.screen.width * 4.2 + canvasOffsetDistance;
-    updateCanvas(app.screen.width * 4 + canvasOffsetDistance, "teleport");
+    player.x = app.screen.width * 4.2 - canvasOffsetDistance;
+    updateCanvas(app.screen.width * 4 - canvasOffsetDistance, "teleport");
     biomePlayerHasVisited.push("forestHouse");
     playAudio(ambientMusic);
+}
+
+function transitionToWoman() {
+    updateMinFloorHeight(gameHeight * 6 / 7);
+    playerBiome = 'woman';
+
+    allowPlayerMoveOutOfScreen = false;
+    player.x = app.screen.width * 5.7 - canvasOffsetDistance;
+    updateCanvas(app.screen.width * 5.5 - canvasOffsetDistance, "teleport");
+    biomePlayerHasVisited.push('woman');
+    BGMs.forEach((bgm) => {
+        if (!bgm.paused) {
+            bgm.pause();
+        }
+    });
 }
 
 function playAudio(audio) {
@@ -1558,12 +1583,26 @@ async function playEnding() {
         });
 
         await canvasFadeOut(1500);
+        player.visible = false;
+
         endingAudio.play();
         for (let i = 0; i < endingCaptions.length; i++) {
             const currentCaption = endingCaptions[i];
             const nextCaptionTime = endingCaptions[i + 1] ? endingCaptions[i + 1].time : null;
 
             if (nextCaptionTime) {
+                if (i === 1) {
+                    transitionToWoman();
+                    healthText.visible = false;
+                    energyText.visible = false;
+
+                    womanBackground.alpha = 0;
+                    for (let i = 0; i < 1; i += 0.01) {
+                        setTimeout(() => {
+                            womanBackground.alpha = i;
+                        }, i * 1000);
+                    }
+                }
                 const delay = (nextCaptionTime - currentCaption.time) * 1000;
                 await showCaption(currentCaption.text);
                 await sleep(delay);
@@ -1571,12 +1610,16 @@ async function playEnding() {
             } else {
                 // The last caption
                 await showCaption(currentCaption.text);
-                await sleep(5000);
+                await sleep(3000);
+                womanBackground.texture = womanOpenEyes;
+                await sleep(3000);
                 await hideCaption();
 
                 battleMusic.volume = 0
                 battleMusic.play();
                 audioFadeIn(battleMusic, 3000);
+
+                canvasFadeOut(3000);
                 const endingContainer = new PIXI.Container();
                 const mainThankTitle = new PIXI.Text(
                     "感谢游玩",
@@ -2955,8 +2998,6 @@ async function elementDied(element) {
         setTimeout(gameOver, 1500);
     } else {
         // Add the element to the stage so that it can be seen
-        element.label.container.visible = false;
-        app.stage.addChild(element);
         element.visible = true;
         element.textures = element.label.texture.died;
 
@@ -2988,15 +3029,16 @@ async function elementDied(element) {
             instruction: "Press <kbd>C</kbd> to ride a horse",
         }, "./src/image/player/player_ride.gif");
 
+        if (!unlockedAbilities.includes("Extra health")) {
+            charactersInfo.player.status.maxHealth += 250;
+            charactersInfo.player.status.health = charactersInfo.player.status.maxHealth;
+            healthText.text = 'Health: ' + charactersInfo.player.status.health;
+        }
         await unlockAbilityShow("Extra health", {
             description: "You gain an extra 250 health points.",
             instruction: false,
         }, "./src/image/player/player_extra_health.png");
-        charactersInfo.player.status.maxHealth += 250;
-        charactersInfo.player.status.health = charactersInfo.player.status.maxHealth;
-        healthText.text = 'Health: ' + charactersInfo.player.status.health;
-
-        console.log(charactersInfo.player.status);
+        
     }
 
     if (element.label.name === "bugBoss") {
@@ -3142,19 +3184,11 @@ function gameOver() {
     app.stage.addChild(dieText);
 }
 
-function gameWin() {
-    document.removeEventListener('keydown', keysDown);
-    document.removeEventListener('keyup', keysUp);
-    document.querySelector("#gameDiv").removeEventListener('mousedown', mouseDown);
-    document.querySelector("#gameDiv").removeEventListener('mouseup', mouseUp);
-    clearInterval(playerRegenerationInterval);
+async function gameWin() {
     ambientMusic.volume = 0.5;
     battleMusic.volume = 0.5;
-    canvasFadeOut(2500).then(async () => {
-        console.log("Transtion")
-        transitionToForestHouse();
-        canvasFadeIn(2000);
-    });
+    await canvasFadeOut(2500);
+    transitionToForestHouse();
 }
 
 async function gameLoop(delta = 1) {
@@ -3177,13 +3211,9 @@ async function gameLoop(delta = 1) {
 
     // Check if the player is attacked by the monsters
     for (const attack of monsterAttacks) {
-        // setUpSprite(attack);
-        if (checkCollision(player, attack) === "right" || checkCollision(player, attack) === "left") {
-            const attacker = monsters.find(monster => monster.label.name === attack.label.from);
-            if (attacker.label.alive) {
-                elementDamaged(player, attack.label.damage);
-                console.log("Player is attacked by " + attack.label.from);
-            }
+        if ((checkOverlap(player, attack) || checkCollision(player, attack) === "left" || checkCollision(player, attack) === "right")) {
+            elementDamaged(player, attack.label.damage);
+            console.log("Player is attacked by " + attack.label.from);
         }
     }
 
@@ -3588,38 +3618,38 @@ async function gameLoop(delta = 1) {
         playerJump();
     }
 
-    // Test
-    if (key['p']) {
-        // Just for testing, unlock all abilities
-        await unlockAbilityShow("Sword Attack", {
-            description: "<kbd>Left/Right</kbd> click to use sword attack, deals 20 damage.",
-            instruction: "<kbd>Left/Right</kbd> click to use sword attack",
-        }, "./src/image/player/player_sword_attack.gif");
-        await unlockAbilityShow("Chi attack", {
-            description: "Press <kbd>F</kbd> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
-            instruction: "Press <kbd>F</kbd> to use Chi attack",
-        }, "./src/image/player/player_chi_attack.gif");
-        await unlockAbilityShow("Roll", {
-            description: "Press <kbd>Q</kbd> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
-            instruction: "Press <kbd>Q</kbd> to roll",
-        }, "./src/image/player/player_roll.gif");
-        await unlockAbilityShow("Ride horse", {
-            description: "Press <kbd>C</kbd> to ride a horse, has a 10 seconds cooldown. <br>When riding, the player moves twice as fast.",
-            instruction: "Press <kbd>C</kbd> to ride a horse",
-        }, "./src/image/player/player_ride.gif");
-        await unlockAbilityShow("Extra health", {
-            description: "You gain an extra 250 health points.",
-            instruction: false,
-        }, "./src/image/player/player_extra_health.png");
-    }
-    if (key['o']) {
-        // Just for testing
-        elementDamaged(player, charactersInfo.player.status.maxHealth);
-    }
-    if (key['i'] && playerBiome !== "forestHouse") {
-        // Just for testing
-        transitionToForestHouse();
-    }
+    // // Test
+    // if (key['p']) {
+    //     // Just for testing, unlock all abilities
+    //     await unlockAbilityShow("Sword Attack", {
+    //         description: "<kbd>Left/Right</kbd> click to use sword attack, deals 20 damage.",
+    //         instruction: "<kbd>Left/Right</kbd> click to use sword attack",
+    //     }, "./src/image/player/player_sword_attack.gif");
+    //     await unlockAbilityShow("Chi attack", {
+    //         description: "Press <kbd>F</kbd> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
+    //         instruction: "Press <kbd>F</kbd> to use Chi attack",
+    //     }, "./src/image/player/player_chi_attack.gif");
+    //     await unlockAbilityShow("Roll", {
+    //         description: "Press <kbd>Q</kbd> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
+    //         instruction: "Press <kbd>Q</kbd> to roll",
+    //     }, "./src/image/player/player_roll.gif");
+    //     await unlockAbilityShow("Ride horse", {
+    //         description: "Press <kbd>C</kbd> to ride a horse, has a 10 seconds cooldown. <br>When riding, the player moves twice as fast.",
+    //         instruction: "Press <kbd>C</kbd> to ride a horse",
+    //     }, "./src/image/player/player_ride.gif");
+    //     await unlockAbilityShow("Extra health", {
+    //         description: "You gain an extra 250 health points.",
+    //         instruction: false,
+    //     }, "./src/image/player/player_extra_health.png");
+    // }
+    // if (key['o']) {
+    //     // Just for testing
+    //     elementDamaged(player, charactersInfo.player.status.maxHealth);
+    // }
+    // if (key['i'] && playerBiome !== "forestHouse") {
+    //     // Just for testing
+    //     transitionToForestHouse();
+    // }
 
     // Abilities key press
     if (key['c'] && unlockedAbilities.includes("Ride horse") && playerRideCooldown <= 0) {
