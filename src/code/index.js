@@ -1660,7 +1660,7 @@ async function playEnding() {
                 )
                 contributersList.anchor = 0.5;
                 contributersList.x = app.screen.width / 2;
-                contributersList.y = app.screen.width / 2 - contributersList.height / 2;
+                contributersList.y = app.screen.height / 2;
                 contributersList.zIndex = 101;
                 endingContainer.addChild(contributersList);
 
@@ -1668,6 +1668,16 @@ async function playEnding() {
                 endingContainer.children.forEach((child) => {
                     child.alpha = 0;
                 })
+
+                const yinYang = PIXI.Sprite.from('./src/image/others/yin_yang.png');
+                yinYang.anchor.set(0.5);
+                yinYang.width = diagonalLength * 0.25;
+                yinYang.height = diagonalLength * 0.25;
+                yinYang.x = app.screen.width / 2;
+                yinYang.y = app.screen.height; // the point of this is to make it display half from the bottom
+                yinYang.zIndex = 101;
+                endingContainer.addChild(yinYang);
+
                 app.stage.addChild(endingContainer);
                 endingContainer.children.forEach((child) => {
                     for (let i = 0; i < 1; i += 0.01) {
@@ -1676,6 +1686,10 @@ async function playEnding() {
                         }, i * 1000);
                     }
                 })
+
+                // setTimeout(() => {
+                //     location.reload();
+                // }, 20000);
             }
         }
     })
@@ -2783,10 +2797,9 @@ function bugBossAttack() {
     // When the bug boss is attacking, it will summon little bugs
     bugBoss.label.isAttacking = true;
     if (!bugBoss.label.isSummoning) {
-        console.log("Set create bug interval");
-        bugBoss.label.isSummoning = true;
         const createLittleBugInterval = setInterval(createLittleBug, 2500);
         intervalsAndTimeouts.push(createLittleBugInterval);
+        bugBoss.label.isSummoning = true;
     }
 
     if (player.x > bugBoss.x) {
@@ -3213,7 +3226,6 @@ async function gameLoop(delta = 1) {
     for (const attack of monsterAttacks) {
         if ((checkOverlap(player, attack) || checkCollision(player, attack) === "left" || checkCollision(player, attack) === "right")) {
             elementDamaged(player, attack.label.damage);
-            console.log("Player is attacked by " + attack.label.from);
         }
     }
 
@@ -3296,7 +3308,6 @@ async function gameLoop(delta = 1) {
         } else {
             playerIsChiAttacking = false;
             chi.visible = false;
-            playerAttacks.splice(playerAttacks.indexOf(chi), 1);
         }
     }
 
@@ -3371,7 +3382,6 @@ async function gameLoop(delta = 1) {
             strikePig.label.isAttacking = false;
             strikePigSmoke.visible = false;
             strikePigStrike.visible = false;
-            monsterAttacks.splice(monsterAttacks.indexOf(strikePigStrike), 1);
         }
     }
 
@@ -3389,7 +3399,6 @@ async function gameLoop(delta = 1) {
             bugBossStrike.x = bugBoss.x;
             bugBossStrike.visible = false;
             bugBoss.label.isAttacking = false;
-            monsterAttacks.splice(monsterAttacks.indexOf(bugBossStrike), 1);
         }
     }
 
@@ -3618,38 +3627,38 @@ async function gameLoop(delta = 1) {
         playerJump();
     }
 
-    // // Test
-    // if (key['p']) {
-    //     // Just for testing, unlock all abilities
-    //     await unlockAbilityShow("Sword Attack", {
-    //         description: "<kbd>Left/Right</kbd> click to use sword attack, deals 20 damage.",
-    //         instruction: "<kbd>Left/Right</kbd> click to use sword attack",
-    //     }, "./src/image/player/player_sword_attack.gif");
-    //     await unlockAbilityShow("Chi attack", {
-    //         description: "Press <kbd>F</kbd> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
-    //         instruction: "Press <kbd>F</kbd> to use Chi attack",
-    //     }, "./src/image/player/player_chi_attack.gif");
-    //     await unlockAbilityShow("Roll", {
-    //         description: "Press <kbd>Q</kbd> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
-    //         instruction: "Press <kbd>Q</kbd> to roll",
-    //     }, "./src/image/player/player_roll.gif");
-    //     await unlockAbilityShow("Ride horse", {
-    //         description: "Press <kbd>C</kbd> to ride a horse, has a 10 seconds cooldown. <br>When riding, the player moves twice as fast.",
-    //         instruction: "Press <kbd>C</kbd> to ride a horse",
-    //     }, "./src/image/player/player_ride.gif");
-    //     await unlockAbilityShow("Extra health", {
-    //         description: "You gain an extra 250 health points.",
-    //         instruction: false,
-    //     }, "./src/image/player/player_extra_health.png");
-    // }
-    // if (key['o']) {
-    //     // Just for testing
-    //     elementDamaged(player, charactersInfo.player.status.maxHealth);
-    // }
-    // if (key['i'] && playerBiome !== "forestHouse") {
-    //     // Just for testing
-    //     transitionToForestHouse();
-    // }
+    // Test
+    if (key['p']) {
+        // Just for testing, unlock all abilities
+        await unlockAbilityShow("Sword Attack", {
+            description: "<kbd>Left/Right</kbd> click to use sword attack, deals 20 damage.",
+            instruction: "<kbd>Left/Right</kbd> click to use sword attack",
+        }, "./src/image/player/player_sword_attack.gif");
+        await unlockAbilityShow("Chi attack", {
+            description: "Press <kbd>F</kbd> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
+            instruction: "Press <kbd>F</kbd> to use Chi attack",
+        }, "./src/image/player/player_chi_attack.gif");
+        await unlockAbilityShow("Roll", {
+            description: "Press <kbd>Q</kbd> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
+            instruction: "Press <kbd>Q</kbd> to roll",
+        }, "./src/image/player/player_roll.gif");
+        await unlockAbilityShow("Ride horse", {
+            description: "Press <kbd>C</kbd> to ride a horse, has a 10 seconds cooldown. <br>When riding, the player moves twice as fast.",
+            instruction: "Press <kbd>C</kbd> to ride a horse",
+        }, "./src/image/player/player_ride.gif");
+        await unlockAbilityShow("Extra health", {
+            description: "You gain an extra 250 health points.",
+            instruction: false,
+        }, "./src/image/player/player_extra_health.png");
+    }
+    if (key['o']) {
+        // Just for testing
+        elementDamaged(player, charactersInfo.player.status.maxHealth);
+    }
+    if (key['i'] && playerBiome !== "forestHouse") {
+        // Just for testing
+        transitionToForestHouse();
+    }
 
     // Abilities key press
     if (key['c'] && unlockedAbilities.includes("Ride horse") && playerRideCooldown <= 0) {
