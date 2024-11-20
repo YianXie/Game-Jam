@@ -3678,38 +3678,38 @@ async function gameLoop(delta = 1) {
         playerJump();
     }
 
-    // Test
-    if (key['p']) {
-        // Just for testing, unlock all abilities
-        await unlockAbilityShow("Sword Attack", {
-            description: "<kbd>Left/Right</kbd> click to use sword attack, deals 20 damage.",
-            instruction: "<kbd>Left/Right</kbd> click to use sword attack",
-        }, "./src/image/player/player_sword_attack.gif");
-        await unlockAbilityShow("Chi attack", {
-            description: "Press <kbd>F</kbd> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
-            instruction: "Press <kbd>F</kbd> to use Chi attack",
-        }, "./src/image/player/player_chi_attack.gif");
-        await unlockAbilityShow("Roll", {
-            description: "Press <kbd>Q</kbd> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
-            instruction: "Press <kbd>Q</kbd> to roll",
-        }, "./src/image/player/player_roll.gif");
-        await unlockAbilityShow("Ride horse", {
-            description: "Press <kbd>C</kbd> to ride a horse, has a 10 seconds cooldown. <br>When riding, the player moves twice as fast.",
-            instruction: "Press <kbd>C</kbd> to ride a horse",
-        }, "./src/image/player/player_ride.gif");
-        await unlockAbilityShow("Extra health", {
-            description: "You gain an extra 250 health points.",
-            instruction: false,
-        }, "./src/image/player/player_extra_health.png");
-    }
-    if (key['o']) {
-        // Just for testing
-        elementDamaged(player, charactersInfo.player.status.maxHealth);
-    }
-    if (key['i'] && playerBiome !== "forestHouse") {
-        // Just for testing
-        transitionToForestHouse();
-    }
+    // // Test
+    // if (key['p']) {
+    //     // Just for testing, unlock all abilities
+    //     await unlockAbilityShow("Sword Attack", {
+    //         description: "<kbd>Left/Right</kbd> click to use sword attack, deals 20 damage.",
+    //         instruction: "<kbd>Left/Right</kbd> click to use sword attack",
+    //     }, "./src/image/player/player_sword_attack.gif");
+    //     await unlockAbilityShow("Chi attack", {
+    //         description: "Press <kbd>F</kbd> to use Chi attack, deals 25 damage. <br>Each attack consumes 1 energy.",
+    //         instruction: "Press <kbd>F</kbd> to use Chi attack",
+    //     }, "./src/image/player/player_chi_attack.gif");
+    //     await unlockAbilityShow("Roll", {
+    //         description: "Press <kbd>Q</kbd> to roll, has a 0.5 second cooldown. <br>When rolling, the player takes 75% less damage.",
+    //         instruction: "Press <kbd>Q</kbd> to roll",
+    //     }, "./src/image/player/player_roll.gif");
+    //     await unlockAbilityShow("Ride horse", {
+    //         description: "Press <kbd>C</kbd> to ride a horse, has a 10 seconds cooldown. <br>When riding, the player moves twice as fast.",
+    //         instruction: "Press <kbd>C</kbd> to ride a horse",
+    //     }, "./src/image/player/player_ride.gif");
+    //     await unlockAbilityShow("Extra health", {
+    //         description: "You gain an extra 250 health points.",
+    //         instruction: false,
+    //     }, "./src/image/player/player_extra_health.png");
+    // }
+    // if (key['o']) {
+    //     // Just for testing
+    //     elementDamaged(player, charactersInfo.player.status.maxHealth);
+    // }
+    // if (key['i'] && playerBiome !== "forestHouse") {
+    //     // Just for testing
+    //     transitionToForestHouse();
+    // }
 
     // Abilities key press
     if (key['c'] && unlockedAbilities.includes("Ride horse") && playerRideCooldown <= 0) {
