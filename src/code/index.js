@@ -854,7 +854,7 @@ const attacksInfo = {
     },
     finalBossSword: {
         name: "finalBossSword",
-        damage: 25,
+        damage: 30,
         range: gameWidth * 0.25,
         speed: gameWidth * 0.015,
         direction: "right",
@@ -868,6 +868,23 @@ const attacksInfo = {
             average: (gameWidth * 0.25 + gameHeight * 0.25) / 2,
         },
         textures: {},
+        from: "finalBoss",
+    },
+    finalBossStrike: {
+        name: "finalBossStrike",
+        damage: 25,
+        range: gameWidth * 0.5,
+        speed: gameWidth * 0.025,
+        direction: "left",
+        location: {
+            x: app.screen.width / 2,
+            y: app.screen.height / 2,
+        },
+        size: {
+            width: diagonalLength * 0.25,
+            height: diagonalLength * 0.25,
+        },
+        texture: {},
         from: "finalBoss",
     }
 }
@@ -1122,8 +1139,8 @@ async function init() {
     womanBackground.anchor = 0.5;
     womanBackground.x = gameWidth * 6;
     womanBackground.y = gameHeight / 2;
-    womanBackground.width = gameWidth;
-    womanBackground.height = gameHeight;
+    // womanBackground.width = gameWidth;
+    // womanBackground.height = gameHeight;
     womanBackground.label = "woman";
     app.stage.addChild(womanBackground);
     backgrounds.push(womanBackground);
@@ -2853,6 +2870,8 @@ function finalBossAttack() {
             finalBossBody.label['movingHand'] = 'left';
             finalBossLeftArmAlreadyAttacked = false;
         }
+
+        finalBossBody.label['strikeOriginalLocation'] = finalBossBody.x;
     }
     catch (err) {
         finalBossBody.label['movingHand'] = 'left';
@@ -3408,6 +3427,22 @@ async function gameLoop(delta = 1) {
                 // The arms move to the right
                 finalBossLeftArm.rotation += 0.05;
                 finalBossLeftSword.rotation += 0.05;
+
+                const finalBossStrike = PIXI.Sprite.from('./src/image/monsters/bug_boss/bug_boss_strike_face_left.png');
+                finalBossStrike.anchor = 0.5;
+                finalBossStrike.x = finalBossBody.x;
+                finalBossStrike.y = finalBossBody.y - finalBossBody.height / 2;
+                finalBossStrike.width = attacksInfo.finalBossStrike.size.width;
+                finalBossStrike.height = attacksInfo.finalBossStrike.size.height;
+                finalBossStrike.zIndex = 100;
+                monsterAttacks.push(finalBossStrike);
+                app.stage.addChild(finalBossStrike);
+
+                if (Math.abs(finalBossBody.x - finalBossStrike.x) + canvasOffsetDistance < attacksInfo.finalBossStrike.range) {
+                    finalBossStrike.x -= attacksInfo.finalBossStrike.speed;
+                } else {
+                    // finalBossStrike.visible = false;
+                }
             } else if (Math.abs(finalBossLeftArm.rotation - symbolsInfo.finalBossArms.originalRotation) > 0) {
                 finalBossLeftArmAlreadyAttacked = true;
                 finalBossLeftArm.rotation -= 0.05;
@@ -3424,6 +3459,22 @@ async function gameLoop(delta = 1) {
                 // The arms move to the left
                 finalBossRightArm.rotation -= 0.05;
                 finalBossRightSword.rotation -= 0.05;
+
+                const finalBossStrike = PIXI.Sprite.from('./src/image/monsters/bug_boss/bug_boss_strike_face_right.png');
+                finalBossStrike.anchor = 0.5;
+                finalBossStrike.x = finalBossBody.x;
+                finalBossStrike.y = finalBossBody.y - finalBossBody.height / 2;
+                finalBossStrike.width = attacksInfo.finalBossStrike.size.width;
+                finalBossStrike.height = attacksInfo.finalBossStrike.size.height;
+                finalBossStrike.zIndex = 100;
+                monsterAttacks.push(finalBossStrike);
+                app.stage.addChild(finalBossStrike);
+
+                if (Math.abs(finalBossBody.x - finalBossStrike.x) < attacksInfo.finalBossStrike.range) {
+                    finalBossStrike.x += attacksInfo.finalBossStrike.speed;
+                } else {
+                    // finalBossStrike.visible = false;
+                }
             } else if (Math.abs(finalBossRightArm.rotation + symbolsInfo.finalBossArms.originalRotation) > 0) {
                 finalBossRightArmAlreadyAttacked = true;
                 finalBossRightArm.rotation += 0.05;
